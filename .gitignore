@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Compiler generated & binary files
+*.exe
+core/lex.yy.c
+core/parser.tab.c
+core/parser.tab.h
+
+# Temporary test & runtime files
+backend/temp_*.bn
+*.tmp
+*.log
+
+# IDE & Editor configurations
+.vscode/
+.idea/
+
+# OS specific
+Thumbs.db
+.DS_Store

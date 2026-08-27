@@ -1,0 +1,9 @@
+dhoro x = 100;
+dhoro y = 20;
+
+jodi (x > y) {
+    bolo x - y;
+} nawle {
+    bolo x + y;
+}
+
