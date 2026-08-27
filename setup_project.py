@@ -733,6 +733,11 @@ app.listen(PORT, () => {
         ::-webkit-scrollbar-track { background: #07090e; }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+        #editorContainer {
+            font-family: 'Fira Code', 'Consolas', 'Courier New', monospace !important;
+            letter-spacing: 0px !important;
+        }
     </style>
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col font-sans overflow-hidden">
@@ -968,12 +973,41 @@ bolo "5 er Factorial holo: " + fact;`
                 theme: 'banglaCyberTheme',
                 automaticLayout: true,
                 fontSize: 14,
-                fontFamily: '"Fira Code", monospace',
+                lineHeight: 24,
+                fontFamily: '"Fira Code", "Consolas", "Courier New", monospace',
+                fontLigatures: true,
+                letterSpacing: 0,
+                smoothScrolling: true,
+                cursorBlinking: 'smooth',
+                cursorSmoothCaretAnimation: 'on',
+                renderLineHighlight: 'all',
+                bracketPairColorization: { enabled: true },
+                matchBrackets: 'always',
                 minimap: { enabled: false },
                 lineNumbers: 'on',
                 scrollBeyondLastLine: false,
                 padding: { top: 12, bottom: 12 }
             });
+
+            // Re-measure fonts once web fonts finish loading asynchronously
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(function() {
+                    if (monaco && monaco.editor) {
+                        monaco.editor.remeasureFonts();
+                    }
+                });
+            }
+
+            // Custom Right-Arrow handler: Prevent auto line-wrap to next line when at line end
+            editor.addCommand(monaco.KeyCode.RightArrow, function() {
+                const position = editor.getPosition();
+                const model = editor.getModel();
+                if (!position || !model) return;
+                const lineLength = model.getLineContent(position.lineNumber).length;
+                if (position.column <= lineLength) {
+                    editor.setPosition({ lineNumber: position.lineNumber, column: position.column + 1 });
+                }
+            }, 'editorTextFocus && !editorHasSelection');
 
             // Shortcut Ctrl+Enter / Cmd+Enter to Run
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runCode);

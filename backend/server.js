@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
+app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 // Locate the banglalang.exe binary with robust fallback paths
 function getBinaryPath() {
