@@ -210,27 +210,28 @@ bolo sub;
 bolo mul;
 bolo div;`,
 
-            logic: `// ২. শর্ত যাচাই (If-Else) এবং রিলেশনাল অপারেটর
+            logic: `// ২. শর্ত যাচাই (If-Else) এবং স্ট্রিং আউটপুট
 dhoro score = 85;
 
 jodi (score >= 80) {
-    bolo 100; // A+ Grade
+    bolo "Shabash! Pass Korecho (A+ Grade)";
 } nawle {
-    bolo 0;   // Less than 80
+    bolo "Fail! Aro porashona korte hobe.";
 }
 
 dhoro check = 10;
 jodi (check != 5) {
-    bolo 1; // Not equal to 5
+    bolo "Sothik: 10 is not equal to 5";
 }`,
 
             loop: `// ৩. লুপ বা পুনরাবৃত্তি (While Loop)
 dhoro counter = 5;
 
 jotokhon (counter > 0) {
-    bolo counter;
+    bolo "Countdown: " + counter;
     dhoro counter = counter - 1;
-}`,
+}
+bolo "Dhamaka! Loop Sesh!";`,
 
             complex: `// ৪. জটিল লজিক ও ফ্যাক্টোরিয়াল ক্যালকুলেশন
 dhoro n = 5;
@@ -241,7 +242,7 @@ jotokhon (n > 0) {
     dhoro n = n - 1;
 }
 
-bolo fact; // Output: 120`
+bolo "5 er Factorial holo: " + fact;`
         };
 
         // Monaco Language definition for BanglaLang
@@ -253,6 +254,7 @@ bolo fact; // Output: 120`
                 tokenizer: {
                     root: [
                         [/\b(dhoro|bolo|jodi|nawle|jotokhon)\b/, 'keyword'],
+                        [/"([^"\\]|\\.)*"/, 'string'],
                         [/\b[0-9]+\b/, 'number'],
                         [/\b[a-zA-Z_][a-zA-Z0-9_]*\b/, 'variable'],
                         [/\/\/.*$/, 'comment'],
@@ -267,6 +269,7 @@ bolo fact; // Output: 120`
                 inherit: true,
                 rules: [
                     { token: 'keyword', foreground: '10B981', fontStyle: 'bold' },
+                    { token: 'string', foreground: '34D399' },
                     { token: 'number', foreground: 'F59E0B' },
                     { token: 'variable', foreground: '38BDF8' },
                     { token: 'comment', foreground: '64748B', fontStyle: 'italic' },

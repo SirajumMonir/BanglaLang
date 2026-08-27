@@ -18,6 +18,20 @@ int line_num = 1;
 "jotokhon"      { return JOTOKHON; }
 
 [0-9]+          { yylval.num = atoi(yytext); return NUMBER; }
+
+\"([^\"\\]|\\.)*\" {
+    int len = strlen(yytext);
+    char *buf = (char *)malloc(len - 1);
+    if (len > 2) {
+        strncpy(buf, yytext + 1, len - 2);
+        buf[len - 2] = '\0';
+    } else {
+        buf[0] = '\0';
+    }
+    yylval.str = buf;
+    return STRING;
+}
+
 [a-zA-Z_][a-zA-Z0-9_]* { yylval.id = strdup(yytext); return IDENTIFIER; }
 
 "=="            { return EQ; }
