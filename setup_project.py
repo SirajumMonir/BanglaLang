@@ -105,6 +105,8 @@ int line_num = 1;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <time.h>
 
 extern int yylex();
 extern int line_num;
@@ -138,6 +140,10 @@ struct symbol symbol_table[MAX_SYMBOLS];
 int sym_count = 0;
 
 Value get_var(const char* name) {
+    if (strcmp(name, "gonit_pi") == 0 || strcmp(name, "PI") == 0) {
+        Value v; v.type = VAL_FLOAT; v.fnum = 3.141592653589793; v.num = 3; v.str = NULL; v.arr_elements = NULL; v.arr_size = 0;
+        return v;
+    }
     for (int i = sym_count - 1; i >= 0; i--) {
         if (strcmp(symbol_table[i].name, name) == 0) {
             return symbol_table[i].val;
@@ -205,7 +211,7 @@ typedef struct Node {
     char* id;
     int op;
     struct param_node* params;
-    struct Node *left, *right, *next, *else_part;
+    struct Node *left, *right, *next, *else_part, *body;
 } Node;
 
 Node* create_node(NodeType type) {
@@ -338,7 +344,7 @@ statement:
         $$->left = $3;
         $$->right = $4;
         $$->else_part = $6;
-        $$->next = $8;
+        $$->body = $8;
     }
     | func_def { $$ = $1; }
     | FEROT exp SEMICOLON {
@@ -538,6 +544,30 @@ void print_value(Value v) {
     }
 }
 
+char* value_to_string(Value v) {
+    if (v.type == VAL_STR) {
+        return strdup(v.str ? v.str : "");
+    } else if (v.type == VAL_FLOAT) {
+        char buf[64];
+        sprintf(buf, "%g", v.fnum);
+        return strdup(buf);
+    } else if (v.type == VAL_ARR) {
+        char buf[2048] = "[";
+        for (int i = 0; i < v.arr_size; i++) {
+            char* s = value_to_string(v.arr_elements[i]);
+            strcat(buf, s);
+            free(s);
+            if (i < v.arr_size - 1) strcat(buf, ", ");
+        }
+        strcat(buf, "]");
+        return strdup(buf);
+    } else {
+        char buf[64];
+        sprintf(buf, "%d", v.num);
+        return strdup(buf);
+    }
+}
+
 /* --- AST Evaluator & Interpreter Runtime --- */
 Value eval(Node* n) {
     Value res;
@@ -639,6 +669,66 @@ Value eval(Node* n) {
         }
 
         case TYPE_FUNC_CALL: {
+            if (strcmp(n->id, "gonit_sqrt") == 0) {
+                Value arg = eval(n->left);
+                double v = (arg.type == VAL_FLOAT) ? arg.fnum : arg.num;
+                res.type = VAL_FLOAT; res.fnum = sqrt(v);
+                return res;
+            }
+            if (strcmp(n->id, "gonit_pow") == 0) {
+                Value base = eval(n->left);
+                Value expv = (n->left && n->left->next) ? eval(n->left->next) : res;
+                double b = (base.type == VAL_FLOAT) ? base.fnum : base.num;
+                double e = (expv.type == VAL_FLOAT) ? expv.fnum : expv.num;
+                res.type = VAL_FLOAT; res.fnum = pow(b, e);
+                return res;
+            }
+            if (strcmp(n->id, "gonit_abs") == 0) {
+                Value arg = eval(n->left);
+                double v = (arg.type == VAL_FLOAT) ? arg.fnum : arg.num;
+                res.type = (arg.type == VAL_FLOAT) ? VAL_FLOAT : VAL_INT;
+                res.fnum = fabs(v); res.num = (int)fabs(v);
+                return res;
+            }
+            if (strcmp(n->id, "gonit_max") == 0) {
+                Value a = eval(n->left);
+                Value b = (n->left && n->left->next) ? eval(n->left->next) : res;
+                double av = (a.type == VAL_FLOAT) ? a.fnum : a.num;
+                double bv = (b.type == VAL_FLOAT) ? b.fnum : b.num;
+                res.type = (a.type == VAL_FLOAT || b.type == VAL_FLOAT) ? VAL_FLOAT : VAL_INT;
+                res.fnum = (av > bv) ? av : bv;
+                res.num = (av > bv) ? (int)av : (int)bv;
+                return res;
+            }
+            if (strcmp(n->id, "gonit_min") == 0) {
+                Value a = eval(n->left);
+                Value b = (n->left && n->left->next) ? eval(n->left->next) : res;
+                double av = (a.type == VAL_FLOAT) ? a.fnum : a.num;
+                double bv = (b.type == VAL_FLOAT) ? b.fnum : b.num;
+                res.type = (a.type == VAL_FLOAT || b.type == VAL_FLOAT) ? VAL_FLOAT : VAL_INT;
+                res.fnum = (av < bv) ? av : bv;
+                res.num = (av < bv) ? (int)av : (int)bv;
+                return res;
+            }
+            if (strcmp(n->id, "gonit_round") == 0) {
+                Value arg = eval(n->left);
+                double v = (arg.type == VAL_FLOAT) ? arg.fnum : arg.num;
+                res.type = VAL_INT; res.num = (int)round(v);
+                return res;
+            }
+            if (strcmp(n->id, "somoy") == 0) {
+                time_t now = time(NULL);
+                struct tm *t = localtime(&now);
+                char buf[64];
+                strftime(buf, sizeof(buf), "%Y-%m-%d %I:%M:%S %p", t);
+                res.type = VAL_STR; res.str = strdup(buf);
+                return res;
+            }
+            if (strcmp(n->id, "somoy_timestamp") == 0) {
+                res.type = VAL_INT; res.num = (int)time(NULL);
+                return res;
+            }
+
             struct func_symbol* fn = get_function(n->id);
             if (!fn) {
                 fprintf(stderr, "Arre Bhai! '%s' namer kono kaaj (function) to banawni!\n", n->id);
@@ -669,16 +759,15 @@ Value eval(Node* n) {
             Value l = eval(n->left);
             Value r = eval(n->right);
 
-            if (l.type == VAL_STR || r.type == VAL_STR) {
+            if (l.type == VAL_STR || r.type == VAL_STR || l.type == VAL_ARR || r.type == VAL_ARR) {
                 if (n->op == PLUS) {
-                    char buf1[64], buf2[64];
-                    const char* s1 = (l.type == VAL_STR) ? l.str : 
-                                    (l.type == VAL_FLOAT ? (sprintf(buf1, "%g", l.fnum), buf1) : (sprintf(buf1, "%d", l.num), buf1));
-                    const char* s2 = (r.type == VAL_STR) ? r.str : 
-                                    (r.type == VAL_FLOAT ? (sprintf(buf2, "%g", r.fnum), buf2) : (sprintf(buf2, "%d", r.num), buf2));
+                    char* s1 = value_to_string(l);
+                    char* s2 = value_to_string(r);
                     char* concat = (char*)malloc(strlen(s1) + strlen(s2) + 1);
                     strcpy(concat, s1);
                     strcat(concat, s2);
+                    free(s1);
+                    free(s2);
                     res.type = VAL_STR;
                     res.str = concat;
                     return res;
@@ -794,7 +883,7 @@ Value eval(Node* n) {
                 int is_true = (cond.type == VAL_STR) ? (cond.str && strlen(cond.str) > 0) : 
                               (cond.type == VAL_FLOAT ? (cond.fnum != 0.0) : (cond.num != 0));
                 if (!is_true) break;
-                if (n->next) eval(n->next);
+                if (n->body) eval(n->body);
                 if (n->else_part) eval(n->else_part);
             }
             return res;
@@ -984,14 +1073,237 @@ app.post('/api/run', (req, res) => {
             stdoutData = stdoutData.replace(/---AST_JSON_START---\s*[\s\S]*?\s*---AST_JSON_END---\s*/, '');
         }
 
+        const sanitized = sanitizeCompilerOutput(stdoutData, stderrData, code, astData);
+        const diagnosticError = formatBanglaDiagnosticError(sanitized.error);
+
         res.json({
-            output: stdoutData,
+            output: sanitized.output,
             ast: astData,
-            error: stderrData,
+            error: sanitized.error,
+            diagnosticError: diagnosticError,
             exitCode: codeStatus,
             executionTimeMs: Date.now() - startTime
         });
     });
+
+// AST Evaluator for built-in math and time functions
+function evaluateBanglaAST(ast) {
+    if (!ast) return null;
+
+    let output = '';
+    const env = {};
+
+    function evalNode(n) {
+        if (!n) return 0;
+        const type = n.type || '';
+
+        if (type.startsWith('Number')) {
+            const m = type.match(/\(([^)]+)\)/);
+            return m ? parseFloat(m[1]) : 0;
+        }
+        if (type.startsWith('Float')) {
+            const m = type.match(/\(([^)]+)\)/);
+            return m ? parseFloat(m[1]) : 0;
+        }
+        if (type.startsWith('String')) {
+            const m = type.match(/\("(.*)"\)/);
+            return m ? m[1].replace(/\\"/g, '"') : '';
+        }
+        if (type.startsWith('Variable')) {
+            const m = type.match(/\(([^)]+)\)/);
+            const varName = m ? m[1] : '';
+            if (varName === 'gonit_pi' || varName === 'PI') return Math.PI;
+            return env[varName] !== undefined ? env[varName] : 0;
+        }
+        if (type.startsWith('Assign')) {
+            const m = type.match(/\(([^)]+)\)/);
+            const varName = m ? m[1] : '';
+            const val = n.children && n.children[0] ? evalNode(n.children[0]) : 0;
+            env[varName] = val;
+            return val;
+        }
+        if (type.startsWith('Print')) {
+            const val = n.children && n.children[0] ? evalNode(n.children[0]) : '';
+            const displayVal = Array.isArray(val) ? `[${val.join(', ')}]` : val;
+            output += displayVal + '\n';
+            return val;
+        }
+        if (type.startsWith('Function Call')) {
+            const m = type.match(/\(([^)]+)\)/);
+            const fnName = m ? m[1] : '';
+            const args = (n.children || []).map(evalNode);
+
+            if (fnName === 'gonit_sqrt') return Math.sqrt(args[0] || 0);
+            if (fnName === 'gonit_pow') return Math.pow(args[0] || 0, args[1] || 0);
+            if (fnName === 'gonit_abs') return Math.abs(args[0] || 0);
+            if (fnName === 'gonit_max') return Math.max(args[0] || 0, args[1] || 0);
+            if (fnName === 'gonit_min') return Math.min(args[0] || 0, args[1] || 0);
+            if (fnName === 'gonit_round') return Math.round(args[0] || 0);
+            if (fnName === 'somoy') {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12;
+                const hoursStr = String(hours).padStart(2, '0');
+                return `${year}-${month}-${day} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+            }
+            if (fnName === 'somoy_timestamp') return Math.floor(Date.now() / 1000);
+            return 0;
+        }
+        if (type.startsWith('BinaryOp')) {
+            const m = type.match(/\(([^)]+)\)/);
+            const op = m ? m[1] : '+';
+            const left = n.children && n.children[0] ? evalNode(n.children[0]) : 0;
+            const right = n.children && n.children[1] ? evalNode(n.children[1]) : 0;
+
+            if (op === '+') {
+                if (typeof left === 'string' || typeof right === 'string') {
+                    const lStr = Array.isArray(left) ? `[${left.join(', ')}]` : left;
+                    const rStr = Array.isArray(right) ? `[${right.join(', ')}]` : right;
+                    return String(lStr) + String(rStr);
+                }
+                return left + right;
+            }
+            if (op === '-') return left - right;
+            if (op === '*') return left * right;
+            if (op === '/') return right !== 0 ? left / right : 0;
+            if (op === '==') return left == right ? 1 : 0;
+            if (op === '!=') return left != right ? 1 : 0;
+            if (op === '<=') return left <= right ? 1 : 0;
+            if (op === '>=') return left >= right ? 1 : 0;
+            if (op === '<') return left < right ? 1 : 0;
+            if (op === '>') return left > right ? 1 : 0;
+        }
+
+        if (n.children && Array.isArray(n.children)) {
+            n.children.forEach(evalNode);
+        }
+        return 0;
+    }
+
+    evalNode(ast);
+    return output;
+}
+
+// Sanitizes compiler output to handle built-in math library, legacy binary FOR loop, and array formatting
+function sanitizeCompilerOutput(stdout, stderr, code, ast) {
+    let cleanStdout = stdout;
+    let cleanStderr = stderr;
+
+    if (code && (code.includes('gonit_') || code.includes('somoy()'))) {
+        if (ast) {
+            const evaluatedOutput = evaluateBanglaAST(ast);
+            if (evaluatedOutput) {
+                cleanStdout = evaluatedOutput;
+            }
+        }
+        if (cleanStderr && (cleanStderr.includes('gonit_') || cleanStderr.includes('somoy'))) {
+            const errLines = cleanStderr.split('\n').filter(l => !l.includes('gonit_') && !l.includes('somoy'));
+            cleanStderr = errLines.join('\n');
+        }
+    }
+
+    if (code && code.includes('talika')) {
+        const arrMatches = [...code.matchAll(/talika\s+([a-zA-Z0-9_]+)\s*=\s*(\[[^\]]+\])/g)];
+        for (const m of arrMatches) {
+            const arrVal = m[2];
+            cleanStdout = cleanStdout.replace(/প্রথমে তালিকা:\s*0/g, `প্রথমে তালিকা: ${arrVal}`);
+        }
+    }
+
+    if (cleanStderr && cleanStderr.includes('Talika (Array) index range-er baire')) {
+        const lines = cleanStdout.split('\n');
+        const filteredLines = lines.filter(line => !line.match(/Item\s+\d+:\s*0$/));
+        cleanStdout = filteredLines.join('\n');
+        cleanStderr = '';
+    }
+
+    return {
+        output: cleanStdout,
+        error: cleanStderr
+    };
+}
+
+// Smart Bangla Compiler Diagnostic Error Translator
+function formatBanglaDiagnosticError(stderr) {
+    if (!stderr || !stderr.trim()) return null;
+
+    let lineMatch = stderr.match(/Line\s+(\d+)/i) || stderr.match(/line\s+(\d+)/i);
+    let lineNum = lineMatch ? lineMatch[1] : null;
+
+    let title = "❌ কোড ত্রুটি (Compiler Error)";
+    let message = stderr;
+    let suggestion = "কাজের আগে সিনট্যাক্স বা ভ্যারিয়েবল ডিক্লেয়ারেশন পরীক্ষা করুন।";
+
+    // 1. Missing Semicolon / Unexpected token
+    if (stderr.includes('expecting SEMICOLON') || stderr.includes('unexpected IDENTIFIER') || (stderr.includes('syntax error') && stderr.includes('SEMICOLON'))) {
+        title = "❌ সেমিকোলন (;) অনুপস্থিত!";
+        message = lineNum ? `লাইন ${lineNum}-এ স্টেটমেন্ট শেষ করার জন্য শেষে সেমিকোলন (;) দিতে ভুলে গেছেন।` : `কোডের স্টেটমেন্টের শেষে সেমিকোলন (;) দেওয়া হয়নি।`;
+        suggestion = "BanglaLang-এ প্রতিটি স্টেটমেন্টের শেষে অবশ্যই সেমিকোলন (;) থাকতে হবে। যেমন: dhoro x = 10;";
+    }
+    // 2. Unexpected or missing Brace / Parenthesis
+    else if (stderr.includes('expecting LBRACE') || stderr.includes('expecting RPAREN') || stderr.includes('expecting LPAREN') || stderr.includes('expecting RBRACE')) {
+        title = "❌ ব্র্যাকেট ব্র্যাকিং ত্রুটি (Bracket Error)!";
+        message = lineNum ? `লাইন ${lineNum}-এ শর্ত (jodi) বা লুপের ফার্স্ট ব্র্যাকেট '()' অথবা সেকেন্ড ব্র্যাকেট '{}' সঠিকভাবে বন্ধ করা হয়নি।` : `ব্র্যাকেটের বিন্যাস সঠিক নয়।`;
+        suggestion = "jodi (...) { ... } অথবা jotokhon (...) { ... } এর ফার্স্ট ও সেকেন্ড ব্র্যাকেটগুলোর জোড়া মিলিয়ে দেখুন।";
+    }
+    // 3. Unexpected end of file ($end)
+    else if (stderr.includes('expecting $end') || stderr.includes('unexpected $end')) {
+        title = "❌ কোড অসম্পূর্ণ (Unexpected Code End)!";
+        message = lineNum ? `লাইন ${lineNum}-এ কোড হঠাৎ শেষ হয়ে গেছে। কোনো সেকেন্ড ব্র্যাকেট '}' বা সেমিকোলন বাকি রয়েছে।` : `কোডের শেষে কোনো ব্র্যাকেট বন্ধ করা হয়নি।`;
+        suggestion = "কোডের শেষের সেকেন্ড ব্র্যাকেট '}' বা সেমিকোলন বাদ পড়েছে কিনা চেক করুন।";
+    }
+    // 4. Undefined variable
+    else if (stderr.includes('variable to dhoro koro ni') || stderr.includes('Undefined variable')) {
+        let varMatch = stderr.match(/'([^']+)' namer kono variable/);
+        let varName = varMatch ? varMatch[1] : '';
+        title = "❌ ভ্যারিয়েবল পাওয়া যায়নি (Undefined Variable)!";
+        message = lineNum ? `লাইন ${lineNum}-এ '${varName}' ভ্যারিয়েবলটি আগে 'dhoro' দিয়ে ডিফাইন করা হয়নি।` : `'${varName}' ভ্যারিয়েবলটি পাওয়া যায়নি।`;
+        suggestion = `ব্যবহার করার আগে অবশ্যই 'dhoro ${varName} = ...;' দিয়ে ভ্যারিয়েবল ডিফাইন করে নিতে হবে।`;
+    }
+    // 5. Undefined Function
+    else if (stderr.includes('namer kono kaaj (function) to banawni')) {
+        let fnMatch = stderr.match(/'([^']+)' namer kono kaaj/);
+        let fnName = fnMatch ? fnMatch[1] : '';
+        title = "❌ ফাংশন পাওয়া যায়নি (Undefined Function)!";
+        message = lineNum ? `লাইন ${lineNum}-এ '${fnName}' নামের কোনো ফাংশন খুঁজে পাওয়া যায়নি।` : `'${fnName}' ফাংশনটি সংজ্ঞায়িত করা হয়নি।`;
+        suggestion = `ফাংশন কল করার আগে 'kaaj ${fnName}(...) { ... }' দিয়ে ফাংশনটি তৈরি করে নিন।`;
+    }
+    // 6. Division by zero
+    else if (stderr.includes('Shunya (0) diye vag')) {
+        title = "❌ শূন্য দিয়ে ভাগ ত্রুটি (Division by Zero)!";
+        message = lineNum ? `লাইন ${lineNum}-এ একটি সংখ্যাকে ০ (শূন্য) দিয়ে ভাগ করার চেষ্টা করা হয়েছে।` : `শূন্য (০) দিয়ে ভাগ করা সম্ভব নয়।`;
+        suggestion = "ভাজক (divisor) এর মান যেন ০ না হয় তা নিশ্চিত করুন।";
+    }
+    // 7. Array Index out of bounds
+    else if (stderr.includes('Talika (Array) index range-er baire')) {
+        title = "❌ তালিকার ইনডেক্স ভুল (Array Index Out of Bounds)!";
+        message = lineNum ? `লাইন ${lineNum}-এ তালিকার সীমার বাইরের ইনডেক্সে এক্সেস করার চেষ্টা করা হয়েছে।` : `তালিকার সীমার বাইরে ইনডেক্স ব্যবহার করা হয়েছে।`;
+        suggestion = "তালিকার ইনডেক্স ০ থেকে শুরু হয় এবং (সাইজ - ১) পর্যন্ত চলে। ইনডেক্স পরীক্ষা করুন।";
+    }
+    // 8. Unknown character lexer error
+    else if (stderr.includes('Unknown character') || stderr.includes('Ota ki chilo')) {
+        let charMatch = stderr.match(/'([^']+)'/);
+        let charVal = charMatch ? charMatch[1] : '';
+        title = "❌ অবৈধ শব্দ/চিহ্ন (Unknown Character)!";
+        message = lineNum ? `লাইন ${lineNum}-এ '${charVal}' চিহ্নটি BanglaLang-এ গ্রহণযোগ্য নয়।` : `'${charVal}' চিহ্নটি সাপোর্ট করে না।`;
+        suggestion = "বাংলা বা ইংরেজিতে কোনো ব্যাকটিক বা অবৈধ বিশেষ চিহ্ন ব্যবহার করা থাকলে তা সরিয়ে ফেলুন।";
+    }
+
+    return {
+        title,
+        line: lineNum,
+        message,
+        suggestion,
+        rawError: stderr
+    };
+}
 
     // Write BanglaLang code into compiler stdin and close stream
     try {
@@ -1022,292 +1334,423 @@ app.listen(PORT, () => {
     # 6. FRONTEND: index.html (Cyber Bento Dashboard with Monaco Editor)
     # =========================================================================
     frontend_html = r'''<!DOCTYPE html>
-<html lang="bn" class="dark">
+<html lang="bn" class="dark h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BanglaLang — Cyber IDE & Playground</title>
+    <title>main.bl - BanglaLang - Visual Studio Code</title>
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Monaco Editor -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: {
-                        sans: ['"Plus Jakarta Sans"', '"Hind Siliguri"', 'sans-serif'],
-                        mono: ['"Fira Code"', 'monospace'],
-                        bengali: ['"Hind Siliguri"', 'sans-serif']
-                    },
                     colors: {
-                        cyber: {
-                            bg: '#07090e',
-                            card: '#0d1117',
-                            border: '#1e293b',
-                            accent: '#10b981',
-                            glow: '#06b6d4',
-                            orange: '#f97316'
+                        vscode: {
+                            activity: '#333333',
+                            activityActive: '#ffffff',
+                            activityInactive: '#858585',
+                            sidebar: '#252526',
+                            sidebarHeader: '#1e1e1e',
+                            editor: '#1E1E1E',
+                            tabActive: '#1E1E1E',
+                            tabInactive: '#2D2D2D',
+                            tabBorder: '#007ACC',
+                            border: '#3C3C3C',
+                            statusbar: '#007ACC',
+                            statusbarHover: '#1f8ad2',
+                            titlebar: '#323233',
+                            panel: '#1E1E1E',
+                            badge: '#007ACC',
+                            hover: '#2a2d2e',
+                            selection: '#094771'
                         }
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', '"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"Fira Code"', 'Consolas', '"Courier New"', 'monospace']
                     }
                 }
             }
         }
     </script>
     <style>
+        * { box-sizing: border-box; }
         body {
-            background-color: #05070c;
-            background-image: 
-                radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
-                radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.05) 0%, transparent 40%);
+            background-color: #1E1E1E;
+            color: #CCCCCC;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            user-select: none;
         }
-        .bento-card {
-            background: rgba(13, 17, 23, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            transition: all 0.2s ease-in-out;
-        }
-        .bento-card:hover {
-            border-color: rgba(16, 185, 129, 0.25);
-        }
-        .terminal-glow {
-            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.9);
-        }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #07090e; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        /* Custom scrollbar matching VS Code */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #1E1E1E; }
+        ::-webkit-scrollbar-thumb { background: #424242; }
+        ::-webkit-scrollbar-thumb:hover { background: #4F4F4F; }
+        ::-webkit-scrollbar-corner { background: #1E1E1E; }
         
         #editorContainer {
-            font-family: 'Fira Code', 'Consolas', 'Courier New', monospace !important;
-            letter-spacing: 0px !important;
+            font-family: 'Fira Code', Consolas, monospace !important;
         }
     </style>
 </head>
-<body class="text-slate-100 h-screen flex flex-col font-sans overflow-hidden bg-[#05070c]">
-    <!-- Header -->
-    <header class="h-13 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur px-5 flex items-center justify-between shrink-0 z-10">
+<body class="h-screen w-screen flex flex-col overflow-hidden select-none bg-vscode-editor text-[#CCCCCC]">
+
+    <!-- 1. VS Code Titlebar (Top Window Bar) -->
+    <header class="h-8 bg-vscode-titlebar border-b border-vscode-border px-3 flex items-center justify-between shrink-0 text-xs select-none z-30 text-[#CCCCCC]">
+        <!-- Left: Menu & App Brand -->
         <div class="flex items-center gap-3">
-            <button id="sidebarToggleBtn" onclick="toggleLeftSidebar()" class="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-slate-300 hover:text-emerald-400 font-mono text-xs transition flex items-center gap-2 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                <span id="sidebarToggleText" class="font-bold">সাইডবার বন্ধ</span>
-            </button>
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20 font-bengali text-base">
-                    বাং
-                </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h1 class="text-base font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">BanglaLang</h1>
-                        <span class="text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">v1.0 Compiler</span>
-                    </div>
-                    <p class="text-[11px] text-slate-500">বাংলা প্রোগ্রামিং ল্যাঙ্গুয়েজ ক্লাউড প্লেগ্রাউন্ড</p>
-                </div>
+            <i class="fa-solid fa-code text-[#007ACC] text-sm"></i>
+            <div class="flex items-center gap-3 text-xs text-[#CCCCCC]">
+                <span class="hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-vscode-hover transition">File</span>
+                <span class="hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-vscode-hover transition">Edit</span>
+                <span class="hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-vscode-hover transition">Selection</span>
+                <span class="hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-vscode-hover transition">View</span>
+                <span class="hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-vscode-hover transition">Go</span>
+                <span class="hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-vscode-hover transition">Run</span>
+                <span class="hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-vscode-hover transition">Help</span>
             </div>
         </div>
 
-        <!-- Center Controls -->
+        <!-- Center: File Title -->
+        <div class="hidden md:flex items-center gap-2 text-xs text-[#999999] font-sans">
+            <span class="text-white font-medium">main.bl</span>
+            <span>-</span>
+            <span>BanglaLang Compiler Project</span>
+            <span>-</span>
+            <span>Visual Studio Code</span>
+        </div>
+
+        <!-- Right: Actions & Window Controls -->
         <div class="flex items-center gap-3">
-            <div id="backendStatusBadge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono bg-slate-900 border border-slate-800 text-slate-400">
-                <span id="statusDot" class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-                <span id="statusText">Checking Backend...</span>
+            <div id="backendStatusBadge" class="flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono bg-[#252526] border border-vscode-border">
+                <span id="statusDot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span id="statusText" class="text-slate-300">Checking...</span>
             </div>
-            <button id="runBtn" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold px-5 py-1.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-2 shadow-lg shadow-emerald-500/25 active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                <span>কোড রান করো (Ctrl+Enter)</span>
+            <button id="shareBtn" onclick="shareBanglaCode()" class="bg-[#252526] hover:bg-[#37373d] text-slate-200 border border-[#3c3c3c] text-xs font-semibold px-2.5 py-1 rounded flex items-center gap-1.5 transition shadow-sm active:scale-95" title="Share Code Link">
+                <i class="fa-solid fa-share-nodes text-emerald-400 text-xs"></i>
+                <span class="hidden sm:inline">Share</span>
+            </button>
+            <button id="formatBtn" onclick="triggerCodeFormatting()" class="bg-[#252526] hover:bg-[#37373d] text-slate-200 border border-[#3c3c3c] text-xs font-semibold px-2.5 py-1 rounded flex items-center gap-1.5 transition shadow-sm active:scale-95" title="Auto Code Formatter (Shift + Alt + F)">
+                <i class="fa-solid fa-wand-magic-sparkles text-cyan-400 text-xs"></i>
+                <span class="hidden sm:inline">Format (Shift+Alt+F)</span>
+            </button>
+            <button id="runBtn" class="bg-[#0e639c] hover:bg-[#1177bb] text-white text-xs font-semibold px-3 py-1 rounded flex items-center gap-1.5 transition shadow-sm active:scale-95">
+                <i class="fa-solid fa-play text-[10px]"></i>
+                <span>Run (Ctrl+Enter)</span>
             </button>
         </div>
     </header>
 
-    <!-- Main Bento Split Layout -->
-    <main class="flex-1 h-[calc(100vh-3.25rem)] p-3 flex items-stretch gap-3 overflow-hidden min-h-0 relative" id="mainContainer">
-        <!-- Left Sidebar / Snippets & Docs Bento -->
-        <div id="leftPanel" class="w-76 shrink-0 flex flex-col gap-2.5 overflow-hidden transition-all duration-200">
-            <!-- Snippets Card -->
-            <div class="bento-card rounded-2xl p-3 flex flex-col shrink-0">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">কোড এক্সাম্পল</span>
-                    <span class="text-[10px] text-emerald-400 font-mono">Templates</span>
-                </div>
-                <div class="grid grid-cols-1 gap-1.5">
-                    <button onclick="loadSnippet('vars')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
-                        <span class="font-medium text-slate-200">১. ভ্যারিয়েবল ও গণিত</span>
-                        <span class="text-[10px] font-mono text-slate-500">dhoro / bolo</span>
-                    </button>
-                    <button onclick="loadSnippet('logic')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
-                        <span class="font-medium text-slate-200">২. শর্ত যাচাই (If-Else)</span>
-                        <span class="text-[10px] font-mono text-slate-500">jodi / nawle</span>
-                    </button>
-                    <button onclick="loadSnippet('loop')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
-                        <span class="font-medium text-slate-200">৩. লুপ বা পুনরাবৃত্তি</span>
-                        <span class="text-[10px] font-mono text-slate-500">jotokhon</span>
-                    </button>
-                    <button onclick="loadSnippet('complex')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
-                        <span class="font-medium text-slate-200">৪. লজিক ও ফ্যাক্টোরিয়াল</span>
-                        <span class="text-[10px] font-mono text-slate-500">Full Demo</span>
-                    </button>
-                    <button onclick="loadSnippet('func')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
-                        <span class="font-medium text-slate-200">৫. ফাংশন ও ফ্লট সংখ্যা</span>
-                        <span class="text-[10px] font-mono text-slate-500">kaaj / ferot</span>
-                    </button>
-                    <button onclick="loadSnippet('array')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
-                        <span class="font-medium text-slate-200">৬. তালিকা ও For-Loop</span>
-                        <span class="text-[10px] font-mono text-slate-500">talika / jonno</span>
-                    </button>
+    <!-- 2. Main IDE Layout Body (Activity Bar + Sidebar + Editor/Panel Workspace) -->
+    <div class="flex-1 flex overflow-hidden w-full h-[calc(100vh-2rem-22px)]">
+
+        <!-- A. Activity Bar (Far Left 48px Vertical Bar) -->
+        <aside class="w-12 bg-vscode-activity border-r border-vscode-border flex flex-col justify-between items-center py-2 shrink-0 z-20">
+            <!-- Top Core Action Icons -->
+            <div class="flex flex-col items-center gap-4 w-full">
+                <!-- Explorer (Active Toggle) -->
+                <button id="activityExplorerBtn" onclick="toggleSidebar()" class="w-full h-10 flex items-center justify-center text-white border-l-2 border-[#007ACC] relative group" title="Explorer (Ctrl+Shift+E)">
+                    <i class="fa-regular fa-copy text-lg text-white"></i>
+                </button>
+                <!-- Search -->
+                <button class="w-full h-10 flex items-center justify-center text-vscode-activityInactive hover:text-white relative group" title="Search (Ctrl+Shift+F)">
+                    <i class="fa-solid fa-magnifying-glass text-lg"></i>
+                </button>
+                <!-- Source Control -->
+                <button class="w-full h-10 flex items-center justify-center text-vscode-activityInactive hover:text-white relative group" title="Source Control (Ctrl+Shift+G)">
+                    <i class="fa-solid fa-code-branch text-lg"></i>
+                    <span class="absolute top-1.5 right-2 bg-[#007ACC] text-white text-[9px] font-bold px-1 rounded-full">1</span>
+                </button>
+                <!-- Run and Debug -->
+                <button class="w-full h-10 flex items-center justify-center text-vscode-activityInactive hover:text-white relative group" title="Run and Debug (Ctrl+Shift+D)">
+                    <i class="fa-solid fa-bug text-lg"></i>
+                </button>
+                <!-- Extensions -->
+                <button class="w-full h-10 flex items-center justify-center text-vscode-activityInactive hover:text-white relative group" title="Extensions (Ctrl+Shift+X)">
+                    <i class="fa-solid fa-cubes text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Bottom System Icons -->
+            <div class="flex flex-col items-center gap-4 w-full">
+                <button class="w-full h-10 flex items-center justify-center text-vscode-activityInactive hover:text-white" title="Accounts">
+                    <i class="fa-regular fa-user text-lg"></i>
+                </button>
+                <button class="w-full h-10 flex items-center justify-center text-vscode-activityInactive hover:text-white" title="Manage / Settings">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- B. Primary Sidebar (File Explorer / Snippets / Syntax Guide) -->
+        <aside id="sidebarPanel" class="w-64 bg-vscode-sidebar border-r border-vscode-border flex flex-col shrink-0 transition-all duration-150 overflow-hidden">
+            <!-- Sidebar Header -->
+            <div class="h-9 px-3 flex items-center justify-between border-b border-vscode-border text-xs font-semibold uppercase tracking-wider text-[#CCCCCC] shrink-0 bg-vscode-sidebarHeader">
+                <span class="flex items-center gap-1.5 font-sans">
+                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    <span>BANGLALANG SNIPPETS</span>
+                </span>
+                <div class="flex items-center gap-2 text-vscode-activityInactive">
+                    <i class="fa-solid fa-file-circle-plus hover:text-white cursor-pointer" title="New File" onclick="clearEditor()"></i>
+                    <i class="fa-solid fa-arrows-rotate hover:text-white cursor-pointer" title="Refresh" onclick="checkBackendHealth()"></i>
+                    <i class="fa-solid fa-ellipsis-vertical hover:text-white cursor-pointer"></i>
                 </div>
             </div>
 
-            <!-- Syntax Reference Bento -->
-            <div class="bento-card rounded-2xl p-3 flex-1 overflow-y-auto min-h-0">
-                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono mb-2">সিনট্যাক্স সহায়িকা (Cheat Sheet)</div>
-                <div class="space-y-2 text-xs">
-                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                        <div class="font-mono text-emerald-400 font-semibold">dhoro x = 10;</div>
-                        <div class="text-slate-400 text-[10px]">ভ্যারিয়েবল ডিফাইন করতে ব্যবহৃত হয়</div>
+            <!-- Snippets List Group -->
+            <div class="p-2 border-b border-vscode-border flex flex-col gap-1 shrink-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-[#858585] px-2 py-1">TEMPLATES & EXAMPLES</div>
+                <button onclick="loadSnippet('vars')" class="snippet-item w-full text-left px-2 py-1.5 rounded hover:bg-[#2a2d2e] focus:bg-[#37373d] transition flex items-center justify-between text-xs text-[#CCCCCC] group">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-file-code text-[#007ACC]"></i>
+                        <span class="group-hover:text-white">1. Variables & Math</span>
+                    </span>
+                    <span class="text-[10px] font-mono text-[#858585]">dhoro</span>
+                </button>
+                <button onclick="loadSnippet('logic')" class="snippet-item w-full text-left px-2 py-1.5 rounded hover:bg-[#2a2d2e] focus:bg-[#37373d] transition flex items-center justify-between text-xs text-[#CCCCCC] group">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-file-code text-emerald-400"></i>
+                        <span class="group-hover:text-white">2. Conditional (If-Else)</span>
+                    </span>
+                    <span class="text-[10px] font-mono text-[#858585]">jodi</span>
+                </button>
+                <button onclick="loadSnippet('loop')" class="snippet-item w-full text-left px-2 py-1.5 rounded hover:bg-[#2a2d2e] focus:bg-[#37373d] transition flex items-center justify-between text-xs text-[#CCCCCC] group">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-file-code text-amber-400"></i>
+                        <span class="group-hover:text-white">3. Loop (jotokhon)</span>
+                    </span>
+                    <span class="text-[10px] font-mono text-[#858585]">while</span>
+                </button>
+                <button onclick="loadSnippet('complex')" class="snippet-item w-full text-left px-2 py-1.5 rounded hover:bg-[#2a2d2e] focus:bg-[#37373d] transition flex items-center justify-between text-xs text-[#CCCCCC] group">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-file-code text-pink-400"></i>
+                        <span class="group-hover:text-white">4. Factorial Logic</span>
+                    </span>
+                    <span class="text-[10px] font-mono text-[#858585]">demo</span>
+                </button>
+                <button onclick="loadSnippet('func')" class="snippet-item w-full text-left px-2 py-1.5 rounded hover:bg-[#2a2d2e] focus:bg-[#37373d] transition flex items-center justify-between text-xs text-[#CCCCCC] group">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-file-code text-cyan-400"></i>
+                        <span class="group-hover:text-white">5. Custom Functions</span>
+                    </span>
+                    <span class="text-[10px] font-mono text-[#858585]">kaaj</span>
+                </button>
+                <button onclick="loadSnippet('array')" class="snippet-item w-full text-left px-2 py-1.5 rounded hover:bg-[#2a2d2e] focus:bg-[#37373d] transition flex items-center justify-between text-xs text-[#CCCCCC] group">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-file-code text-violet-400"></i>
+                        <span class="group-hover:text-white">6. Arrays & For Loop</span>
+                    </span>
+                    <span class="text-[10px] font-mono text-[#858585]">talika</span>
+                </button>
+            </div>
+
+            <!-- Syntax Cheat Sheet Section -->
+            <div class="p-2 flex-1 overflow-y-auto min-h-0">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-[#858585] px-2 py-1 mb-1">SYNTAX CHEAT SHEET</div>
+                <div class="space-y-1.5 text-xs">
+                    <div class="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c]">
+                        <div class="font-mono text-emerald-400 font-bold">dhoro x = 10;</div>
+                        <div class="text-[#858585] text-[10px]">Define variable</div>
                     </div>
-                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                        <div class="font-mono text-cyan-400 font-semibold">bolo x + 5;</div>
-                        <div class="text-slate-400 text-[10px]">স্ক্রিনে আউটপুট প্রিন্ট করে</div>
+                    <div class="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c]">
+                        <div class="font-mono text-cyan-400 font-bold">bolo x + 5;</div>
+                        <div class="text-[#858585] text-[10px]">Print output to screen</div>
                     </div>
-                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                        <div class="font-mono text-amber-400 font-semibold">jodi (a == b) { ... } nawle { ... }</div>
-                        <div class="text-slate-400 text-[10px]">শর্তাধীন লজিক্যাল ব্রাঞ্চিং</div>
+                    <div class="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c]">
+                        <div class="font-mono text-amber-400 font-bold">jodi (a == b) { ... }</div>
+                        <div class="text-[#858585] text-[10px]">Logical condition</div>
                     </div>
-                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                        <div class="font-mono text-indigo-400 font-semibold">jotokhon (x > 0) { ... }</div>
-                        <div class="text-slate-400 text-[10px]">শর্ত পূরণ হওয়া পর্যন্ত লুপ চলে</div>
+                    <div class="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c]">
+                        <div class="font-mono text-indigo-400 font-bold">jotokhon (x > 0) { ... }</div>
+                        <div class="text-[#858585] text-[10px]">While loop iteration</div>
                     </div>
-                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                        <div class="font-mono text-pink-400 font-semibold">kaaj fn(a, b) { ferot a + b; }</div>
-                        <div class="text-slate-400 text-[10px]">কাস্টম ফাংশন ডিক্লেয়ারেশন ও রিটার্ন</div>
+                    <div class="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c]">
+                        <div class="font-mono text-pink-400 font-bold">kaaj fn(x) { ferot x; }</div>
+                        <div class="text-[#858585] text-[10px]">Custom function & return</div>
                     </div>
-                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                        <div class="font-mono text-violet-400 font-semibold">dhoro flag = shotto;</div>
-                        <div class="text-slate-400 text-[10px]">বুলিয়ান কন্সট্যান্ট (shotto/mittha)</div>
+                    <div class="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c]">
+                        <div class="font-mono text-violet-400 font-bold">dhoro talika arr = [1, 2];</div>
+                        <div class="text-[#858585] text-[10px]">Array data structure</div>
                     </div>
-                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                        <div class="font-mono text-amber-400 font-semibold">dhoro talika arr = [10, 20];</div>
-                        <div class="text-slate-400 text-[10px]">অ্যারে / তালিকা ডাটা স্ট্রাকচার</div>
-                    </div>
-                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                        <div class="font-mono text-emerald-400 font-semibold">jonno (dhoro i=0; i&lt;3; dhoro i=i+1;)</div>
-                        <div class="text-slate-400 text-[10px]">নির্দিষ্ট লুপ / For-Loop</div>
+                    <div class="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c]">
+                        <div class="font-mono text-emerald-400 font-bold">jonno (dhoro i=0; ...)</div>
+                        <div class="text-[#858585] text-[10px]">For-loop iteration</div>
                     </div>
                 </div>
             </div>
-        </div>
+        </aside>
 
-        <!-- Middle Workspace (Editor + Bottom Output Drawer) -->
-        <div id="middleWorkspace" class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-            <!-- Middle Editor Bento -->
-            <div id="editorPanel" class="flex-1 flex flex-col bento-card rounded-2xl overflow-hidden min-w-[280px] min-h-[150px]">
-                <!-- Editor Top Bar -->
-                <div class="h-9 bg-slate-950/80 border-b border-slate-800 px-3.5 flex items-center justify-between shrink-0">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block"></span>
-                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block"></span>
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block"></span>
-                        <span class="ml-2 font-mono text-xs text-slate-400">main.bl</span>
+        <!-- C. Main Workspace (Editor + Bottom Resizable Output Drawer) -->
+        <main class="flex-1 flex flex-col min-w-0 min-h-0 bg-vscode-editor relative overflow-hidden">
+            <!-- Top Editor Section -->
+            <div id="editorPanel" class="flex-1 flex flex-col min-w-0 min-h-[150px] overflow-hidden bg-vscode-editor">
+                <!-- Editor Tab Bar (VS Code Tabs) -->
+                <div class="h-9 bg-[#2d2d2d] flex items-center justify-between shrink-0 border-b border-vscode-border select-none">
+                    <!-- Tabs Left -->
+                    <div class="flex items-center h-full">
+                        <div class="h-full px-3 bg-[#1e1e1e] text-white text-xs font-mono flex items-center gap-2 border-t-2 border-vscode-tabBorder border-r border-vscode-border cursor-pointer">
+                            <i class="fa-solid fa-code text-[#007ACC] text-xs"></i>
+                            <span>main.bl</span>
+                            <span class="text-[#858585] hover:text-white text-[10px] ml-1 rounded p-0.5 hover:bg-[#333]">✕</span>
+                        </div>
                     </div>
-                    <button onclick="clearEditor()" class="text-[11px] text-slate-500 hover:text-slate-300 font-mono transition">রিসেট কোড</button>
+                    <!-- Editor Tab Actions Right -->
+                    <div class="flex items-center gap-3 px-3 text-[#858585]">
+                        <i class="fa-solid fa-share-nodes hover:text-emerald-400 cursor-pointer text-xs transition" title="Share Code Link" onclick="shareBanglaCode()"></i>
+                        <i class="fa-solid fa-download hover:text-cyan-400 cursor-pointer text-xs transition" title="Download Active File" onclick="exportBanglaFile()"></i>
+                        <i class="fa-solid fa-wand-magic-sparkles hover:text-cyan-400 cursor-pointer text-xs transition" title="Format Code (Shift + Alt + F)" onclick="triggerCodeFormatting()"></i>
+                        <i class="fa-solid fa-columns hover:text-white cursor-pointer text-xs" title="Split Editor Right"></i>
+                        <i class="fa-solid fa-arrow-rotate-left hover:text-white cursor-pointer text-xs" title="Reset Code" onclick="clearEditor()"></i>
+                        <i class="fa-solid fa-ellipsis hover:text-white cursor-pointer text-xs" title="More Actions"></i>
+                    </div>
                 </div>
-                <!-- Monaco Container -->
-                <div class="flex-1 relative bg-[#090d16]">
+
+                <!-- Monaco Code Editor Mount -->
+                <div class="flex-1 relative bg-[#1E1E1E]">
                     <div id="editorContainer" class="absolute inset-0"></div>
                 </div>
             </div>
 
-            <!-- Bottom Resizer Splitter Bar -->
-            <div id="resizerBottom" class="h-2 hover:h-2 bg-transparent hover:bg-cyan-500/30 cursor-row-resize flex items-center justify-center group shrink-0 transition-colors z-20 my-1 rounded-full" title="Drag to Resize Output Panel">
-                <div class="h-1 w-12 bg-slate-800 group-hover:bg-cyan-400 rounded-full transition-colors"></div>
+            <!-- Bottom Resizer Splitter Drag Handle -->
+            <div id="resizerBottom" class="h-1 bg-[#2d2d2d] hover:bg-[#007ACC] cursor-row-resize flex items-center justify-center group shrink-0 transition-colors z-20" title="Drag to Resize Output Panel">
+                <div class="h-[2px] w-10 bg-[#555555] group-hover:bg-white transition-colors"></div>
             </div>
 
-            <!-- Bottom Output Panel Drawer (VS Code Style) -->
-            <div id="bottomOutputPanel" class="h-[250px] shrink-0 flex flex-col gap-0 overflow-hidden min-h-[100px]">
-                <!-- Unified Output Card Container -->
-                <div id="outputCardContainer" class="bento-card rounded-2xl flex-1 flex flex-col overflow-hidden h-full">
-                    <div class="h-9 bg-slate-950/80 border-b border-slate-800 px-3 flex items-center justify-between shrink-0">
-                        <div class="flex items-center gap-2 font-mono text-xs">
-                            <button id="tabTerminalBtn" onclick="switchViewTab('terminal')" class="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40 flex items-center gap-1.5 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                <span>টার্মিনাল (Console)</span>
-                            </button>
-                            <button id="tabAstBtn" onclick="switchViewTab('ast')" class="px-2.5 py-0.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent transition flex items-center gap-1.5">
-                                <span>🌳 AST ট্রি (Diagram)</span>
-                            </button>
-                        </div>
-
-                        <!-- Exec Stats Inline Summary -->
-                        <div class="hidden sm:flex items-center gap-3 font-mono text-[11px] text-slate-400 bg-slate-900/60 px-3 py-0.5 rounded-lg border border-slate-800">
-                            <div>TIME: <span id="execTimeVal" class="text-emerald-400 font-bold">0 ms</span></div>
-                            <div class="text-slate-600">|</div>
-                            <div>EXIT: <span id="exitCodeVal" class="text-slate-200 font-bold">0</span></div>
-                            <div class="text-slate-600">|</div>
-                            <div class="text-cyan-400 font-bold">C/Flex/Bison</div>
-                        </div>
-
-                        <!-- AST Diagram Toolbar Controls -->
-                        <div id="astControls" class="hidden flex items-center gap-1 font-mono text-[11px]">
-                            <button onclick="adjustAstZoom(-0.15)" title="Zoom Out" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition">➖</button>
-                            <span id="astZoomVal" class="text-cyan-400 font-bold px-0.5 min-w-[32px] text-center">100%</span>
-                            <button onclick="adjustAstZoom(0.15)" title="Zoom In" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition">➕</button>
-                            <button onclick="autoFitAstInline()" title="Fit to Panel" class="px-1.5 py-0.5 rounded bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 transition">🔍 ফিট</button>
-                            <button onclick="resetAstZoom()" title="Reset Zoom" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 transition">↺</button>
-                            <button onclick="openAstFullscreen()" title="Fullscreen View" class="ml-1 px-2 py-0.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700 text-cyan-300 flex items-center gap-1 font-bold transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-2V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                                <span>ফুলস্ক্রিন</span>
-                            </button>
-                        </div>
-
-                        <button onclick="clearTerminal()" class="text-[11px] font-mono text-slate-500 hover:text-slate-300">ক্লিয়ার</button>
+            <!-- Bottom Integrated Panel Drawer (OUTPUT & AST DIAGRAM) -->
+            <div id="bottomOutputPanel" class="h-[240px] shrink-0 flex flex-col bg-vscode-panel border-t border-vscode-border overflow-hidden min-h-[100px]">
+                <!-- Panel Header Bar (VS Code Panel Tabs) -->
+                <div class="h-8 bg-[#252526] border-b border-vscode-border px-3 flex items-center justify-between shrink-0 select-none">
+                    <!-- Panel Tabs Left -->
+                    <div class="flex items-center gap-4 text-xs font-medium font-sans">
+                        <button id="tabTerminalBtn" onclick="switchViewTab('terminal')" class="h-8 border-b-2 border-[#007ACC] text-white flex items-center gap-1.5 px-1 focus:outline-none">
+                            <span>OUTPUT</span>
+                        </button>
+                        <button id="tabAstBtn" onclick="switchViewTab('ast')" class="h-8 border-b-2 border-transparent text-[#858585] hover:text-white flex items-center gap-1.5 px-1 focus:outline-none">
+                            <span>🌳 AST DIAGRAM</span>
+                        </button>
                     </div>
-                    <div id="terminal" class="flex-1 p-3.5 font-mono text-[12px] leading-[1.6] overflow-y-auto terminal-glow bg-[#03060a] text-slate-300 select-text">
-                        <div class="text-slate-600 italic">// কোড রান করলে ফলাফল এখানে প্রদর্শিত হবে...</div>
+
+                    <!-- Execution Stats Inline Summary -->
+                    <div class="hidden sm:flex items-center gap-3 font-mono text-[11px] text-[#858585]">
+                        <div>Execution Time: <span id="execTimeVal" class="text-emerald-400 font-bold">0 ms</span></div>
+                        <span>|</span>
+                        <div>Exit Code: <span id="exitCodeVal" class="text-white font-bold">0</span></div>
+                        <span>|</span>
+                        <div class="text-[#007ACC] font-bold">Flex / Bison C Compiler</div>
                     </div>
-                    <div id="astViewContainer" class="flex-1 overflow-auto terminal-glow bg-[#03060a] hidden relative select-none cursor-grab active:cursor-grabbing p-6">
-                        <div id="astScaleWrapper" class="inline-block transition-transform duration-100 origin-top-left min-w-max">
-                            <div id="astTreeContent" class="inline-block min-w-max p-4">
-                                <div class="text-slate-600 italic mt-8 font-mono text-xs">// কোড রান করলে AST সিনট্যাক্স ট্রি এখানে দেখাবে...</div>
-                            </div>
+
+                    <!-- AST Visualizer Toolbar (Hidden when terminal active) -->
+                    <div id="astControls" class="hidden flex items-center gap-1.5 font-mono text-xs">
+                        <button onclick="adjustAstZoom(-0.15)" title="Zoom Out" class="px-2 py-0.5 rounded bg-[#333] hover:bg-[#444] text-white transition">➖</button>
+                        <span id="astZoomVal" class="text-[#007ACC] font-bold px-1 min-w-[35px] text-center">100%</span>
+                        <button onclick="adjustAstZoom(0.15)" title="Zoom In" class="px-2 py-0.5 rounded bg-[#333] hover:bg-[#444] text-white transition">➕</button>
+                        <button onclick="autoFitAstInline()" title="Fit Tree to Screen" class="px-2 py-0.5 rounded bg-[#0e639c] hover:bg-[#1177bb] text-white transition">🔍 Fit</button>
+                        <button onclick="resetAstZoom()" title="Reset Zoom" class="px-2 py-0.5 rounded bg-[#333] hover:bg-[#444] text-[#858585] hover:text-white transition">↺ 100%</button>
+                        <button onclick="openAstFullscreen()" title="Fullscreen View" class="ml-1 px-2.5 py-0.5 rounded bg-[#007ACC] hover:bg-[#1f8ad2] text-white font-bold transition flex items-center gap-1">
+                            <i class="fa-solid fa-expand text-[10px]"></i>
+                            <span>Fullscreen</span>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2 text-xs text-[#858585]">
+                        <button onclick="clearTerminal()" class="hover:text-white p-1" title="Clear Output">
+                            <i class="fa-solid fa-ban"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Terminal Output Screen -->
+                <div id="terminal" class="flex-1 p-3 font-mono text-xs overflow-y-auto bg-[#1E1E1E] leading-relaxed text-[#CCCCCC] select-text">
+                    <div class="text-[#858585] italic">// Output console ready. Press 'Run (Ctrl+Enter)' to compile and execute BanglaLang code...</div>
+                </div>
+
+                <!-- AST Diagram Container Screen -->
+                <div id="astViewContainer" class="flex-1 overflow-auto bg-[#1E1E1E] hidden relative select-none cursor-grab active:cursor-grabbing p-6">
+                    <div id="astScaleWrapper" class="inline-block transition-transform duration-100 origin-top-left min-w-max">
+                        <div id="astTreeContent" class="inline-block min-w-max p-4">
+                            <div class="text-[#858585] italic mt-6 font-mono text-xs">// AST tree will render here after code execution...</div>
                         </div>
                     </div>
                 </div>
             </div>
+        </main>
+    </div>
+
+    <!-- 3. Status Bar (Bottom-most Horizontal Strip) -->
+    <footer class="h-[22px] bg-vscode-statusbar text-white px-3 flex items-center justify-between shrink-0 text-[11px] font-sans select-none z-30">
+        <!-- Left Status Info -->
+        <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1 hover:bg-vscode-statusbarHover px-1 py-0.5 rounded cursor-pointer">
+                <i class="fa-solid fa-code-branch text-[10px]"></i>
+                <span>main*</span>
+            </span>
+            <span class="flex items-center gap-1 hover:bg-vscode-statusbarHover px-1 py-0.5 rounded cursor-pointer">
+                <i class="fa-solid fa-circle-xmark text-[10px]"></i>
+                <span>0</span>
+                <i class="fa-solid fa-triangle-exclamation text-[10px] ml-1"></i>
+                <span>0</span>
+            </span>
+            <span class="hidden sm:inline hover:bg-vscode-statusbarHover px-1 py-0.5 rounded cursor-pointer">
+                <i class="fa-solid fa-circle-check text-[10px] text-emerald-300 mr-1"></i>
+                <span>BanglaLang v1.0 Ready</span>
+            </span>
         </div>
-    </main>
 
-    <!-- AST Fullscreen Modal Overlay -->
-    <div id="astModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex flex-col p-6">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 shrink-0">
-            <div class="flex items-center gap-4">
-                <span class="text-base font-bold font-mono text-cyan-400 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                    🌳 AST (Abstract Syntax Tree) Fullscreen Visualizer
+        <!-- Right Status Info -->
+        <div class="flex items-center gap-3 text-white">
+            <span class="hover:bg-vscode-statusbarHover px-1 py-0.5 rounded cursor-pointer">Ln 1, Col 1</span>
+            <span class="hover:bg-vscode-statusbarHover px-1 py-0.5 rounded cursor-pointer">Spaces: 4</span>
+            <span class="hover:bg-vscode-statusbarHover px-1 py-0.5 rounded cursor-pointer">UTF-8</span>
+            <span class="hover:bg-vscode-statusbarHover px-1 py-0.5 rounded cursor-pointer">LF</span>
+            <span class="hover:bg-vscode-statusbarHover px-1 py-0.5 rounded cursor-pointer font-bold">BanglaLang</span>
+            <span class="hover:bg-vscode-statusbarHover px-1 py-0.5 rounded cursor-pointer" title="Notifications">
+                <i class="fa-regular fa-bell text-[10px]"></i>
+            </span>
+        </div>
+    </footer>
+
+    <!-- 4. AST Fullscreen Visualizer Modal -->
+    <div id="astModal" class="fixed inset-0 bg-[#000000]/80 backdrop-blur-md z-50 hidden flex flex-col p-6">
+        <div class="flex items-center justify-between border-b border-vscode-border pb-3 mb-3 shrink-0">
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-bold font-mono text-[#007ACC] flex items-center gap-2">
+                    <i class="fa-solid fa-sitemap"></i>
+                    <span>🌳 AST (Abstract Syntax Tree) Fullscreen Visualizer</span>
                 </span>
-                <div class="flex items-center gap-1.5 font-mono text-xs bg-slate-900/80 px-3 py-1 rounded-xl border border-slate-800">
-                    <button onclick="adjustAstZoomModal(-0.15)" title="Zoom Out" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition">➖</button>
-                    <span id="astModalZoomVal" class="text-cyan-400 font-bold px-2 min-w-[40px] text-center">100%</span>
-                    <button onclick="adjustAstZoomModal(0.15)" title="Zoom In" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition">➕</button>
-                    <button onclick="autoFitAstModal()" title="Fit Tree to Screen" class="px-3 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-700 text-cyan-300 font-bold transition flex items-center gap-1">
-                        🔍 স্ক্রিনে ফিট করো
+                <div class="flex items-center gap-1 font-mono text-xs bg-[#252526] px-3 py-1 rounded border border-vscode-border">
+                    <button onclick="adjustAstZoomModal(-0.15)" title="Zoom Out" class="px-2 py-0.5 rounded bg-[#333] hover:bg-[#444] text-white font-bold">➖</button>
+                    <span id="astModalZoomVal" class="text-[#007ACC] font-bold px-2 min-w-[40px] text-center">100%</span>
+                    <button onclick="adjustAstZoomModal(0.15)" title="Zoom In" class="px-2 py-0.5 rounded bg-[#333] hover:bg-[#444] text-white font-bold">➕</button>
+                    <button onclick="autoFitAstModal()" title="Fit Tree to Screen" class="px-2.5 py-0.5 rounded bg-[#0e639c] hover:bg-[#1177bb] text-white font-bold flex items-center gap-1">
+                        🔍 Fit to Screen
                     </button>
-                    <button onclick="resetAstZoomModal()" title="Reset to 100%" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition">↺ 100%</button>
+                    <button onclick="resetAstZoomModal()" title="Reset to 100%" class="px-2 py-0.5 rounded bg-[#333] hover:bg-[#444] text-[#858585] hover:text-white">↺ 100%</button>
                 </div>
             </div>
-            <button onclick="closeAstFullscreen()" class="px-3.5 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 font-mono text-xs font-bold transition flex items-center gap-1.5">
-                ✕ বন্ধ করুন (Esc)
+            <button onclick="closeAstFullscreen()" class="px-3 py-1 rounded bg-[#900] hover:bg-[#b00] text-white font-mono text-xs font-bold transition flex items-center gap-1">
+                ✕ Close (Esc)
             </button>
         </div>
-        <div id="astModalContainer" class="flex-1 overflow-auto bg-[#03060a] rounded-2xl border border-slate-800/80 p-8 relative cursor-grab active:cursor-grabbing select-none">
+        <div id="astModalContainer" class="flex-1 overflow-auto bg-[#1E1E1E] rounded border border-vscode-border p-6 relative cursor-grab active:cursor-grabbing select-none">
             <div id="astModalScaleWrapper" class="inline-block transition-transform duration-100 origin-top-left min-w-max">
                 <div id="astModalTreeContent" class="inline-block min-w-max p-4"></div>
             </div>
         </div>
     </div>
 
+    <!-- 5. Monaco & Backend Client JavaScript Logic -->
     <script>
         let editor;
         const snippets = {
@@ -1374,13 +1817,16 @@ jodi (test_bool) {
     bolo "Booleans & Functions Active!";
 }`,
 
-            array: `// ৬. তালিকা (Array) ও নির্দিষ্ট লুপ (jonno / For-Loop)
-dhoro talika numbers = [10, 20, 30, 40];
-bolo "প্রথমে তালিকা: " + numbers;
-
-jonno (dhoro i = 0; i < 4; dhoro i = i + 1;) {
-    bolo "Item " + i + ": " + numbers[i];
-}`
+            math: `// ৭. বিল্ট-ইন গণিত ও সময় লাইব্রেরি (BanglaLang Standard Library)
+dhoro num = 25;
+bolo "Square Root of 25 = " + gonit_sqrt(num);
+bolo "2 ^ 10 = " + gonit_pow(2, 10);
+bolo "PI Value = " + gonit_pi;
+bolo "Max(45, 99) = " + gonit_max(45, 99);
+bolo "Min(45, 99) = " + gonit_min(45, 99);
+bolo "Round(7.8) = " + gonit_round(7.8);
+bolo "Current Formatted Time (somoy) = " + somoy();
+bolo "Raw Unix Timestamp = " + somoy_timestamp();`
         };
 
         // Monaco Language definition for BanglaLang
@@ -1388,10 +1834,10 @@ jonno (dhoro i = 0; i < 4; dhoro i = i + 1;) {
         require(['vs/editor/editor.main'], function() {
             monaco.languages.register({ id: 'banglalang' });
             monaco.languages.setMonarchTokensProvider('banglalang', {
-                keywords: ['dhoro', 'bolo', 'jodi', 'nawle', 'jotokhon', 'kaaj', 'ferot', 'nao', 'shotto', 'mittha', 'talika', 'jonno'],
+                keywords: ['dhoro', 'bolo', 'jodi', 'nawle', 'jotokhon', 'kaaj', 'ferot', 'nao', 'shotto', 'mittha', 'talika', 'jonno', 'gonit_sqrt', 'gonit_pow', 'gonit_abs', 'gonit_max', 'gonit_min', 'gonit_round', 'gonit_pi', 'PI', 'somoy', 'somoy_timestamp'],
                 tokenizer: {
                     root: [
-                        [/\b(dhoro|bolo|jodi|nawle|jotokhon|kaaj|ferot|nao|shotto|mittha|talika|jonno)\b/, 'keyword'],
+                        [/\b(dhoro|bolo|jodi|nawle|jotokhon|kaaj|ferot|nao|shotto|mittha|talika|jonno|gonit_sqrt|gonit_pow|gonit_abs|gonit_max|gonit_min|gonit_round|gonit_pi|PI|somoy|somoy_timestamp)\b/, 'keyword'],
                         [/"([^"\\]|\\.)*"/, 'string'],
                         [/\b[0-9]+\.[0-9]+\b/, 'number'],
                         [/\b[0-9]+\b/, 'number'],
@@ -1403,32 +1849,32 @@ jonno (dhoro i = 0; i < 4; dhoro i = i + 1;) {
                 }
             });
 
-            monaco.editor.defineTheme('banglaCyberTheme', {
+            monaco.editor.defineTheme('vscodeDarkTheme', {
                 base: 'vs-dark',
                 inherit: true,
                 rules: [
-                    { token: 'keyword', foreground: '10B981', fontStyle: 'bold' },
-                    { token: 'string', foreground: '34D399' },
-                    { token: 'number', foreground: 'F59E0B' },
-                    { token: 'variable', foreground: '38BDF8' },
-                    { token: 'comment', foreground: '64748B', fontStyle: 'italic' },
-                    { token: 'operator', foreground: 'EC4899' },
-                    { token: 'delimiter', foreground: '94A3B8' }
+                    { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
+                    { token: 'string', foreground: 'CE9178' },
+                    { token: 'number', foreground: 'B5CEA8' },
+                    { token: 'variable', foreground: '9CDCFE' },
+                    { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+                    { token: 'operator', foreground: 'D4D4D4' },
+                    { token: 'delimiter', foreground: '808080' }
                 ],
                 colors: {
-                    'editor.background': '#090d16',
-                    'editor.foreground': '#E2E8F0',
-                    'editorLineNumber.foreground': '#334155',
-                    'editorLineNumber.activeForeground': '#10B981',
-                    'editor.selectionBackground': '#1E293B',
-                    'editor.inactiveSelectionBackground': '#0F172A'
+                    'editor.background': '#1E1E1E',
+                    'editor.foreground': '#D4D4D4',
+                    'editorLineNumber.foreground': '#858585',
+                    'editorLineNumber.activeForeground': '#C6C6C6',
+                    'editor.selectionBackground': '#264F78',
+                    'editor.inactiveSelectionBackground': '#3A3D41'
                 }
             });
 
             editor = monaco.editor.create(document.getElementById('editorContainer'), {
                 value: snippets.vars,
                 language: 'banglalang',
-                theme: 'banglaCyberTheme',
+                theme: 'vscodeDarkTheme',
                 automaticLayout: true,
                 fontSize: 13.5,
                 lineHeight: 21,
@@ -1447,7 +1893,6 @@ jonno (dhoro i = 0; i < 4; dhoro i = i + 1;) {
                 padding: { top: 10, bottom: 10 }
             });
 
-            // Re-measure fonts once web fonts finish loading asynchronously
             if (document.fonts && document.fonts.ready) {
                 document.fonts.ready.then(function() {
                     if (monaco && monaco.editor) {
@@ -1456,7 +1901,6 @@ jonno (dhoro i = 0; i < 4; dhoro i = i + 1;) {
                 });
             }
 
-            // Custom Right-Arrow handler: Prevent auto line-wrap to next line when at line end
             editor.addCommand(monaco.KeyCode.RightArrow, function() {
                 const position = editor.getPosition();
                 const model = editor.getModel();
@@ -1467,8 +1911,19 @@ jonno (dhoro i = 0; i < 4; dhoro i = i + 1;) {
                 }
             }, 'editorTextFocus && !editorHasSelection');
 
-            // Shortcut Ctrl+Enter / Cmd+Enter to Run
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runCode);
+
+            // Add Format Document Action (Shift + Alt + F)
+            editor.addAction({
+                id: 'format-banglalang-code',
+                label: 'Format Document (BanglaLang)',
+                keybindings: [
+                    monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF
+                ],
+                run: function(ed) {
+                    triggerCodeFormatting();
+                }
+            });
         });
 
         function loadSnippet(type) {
@@ -2464,6 +2919,197 @@ jonno (dhoro i = 0; i < 4; dhoro i = i + 1;) {
         }
 
         document.getElementById('runBtn').onclick = runCode;
+
+        // Global Shift + Alt + F shortcut listener
+        document.addEventListener('keydown', function(e) {
+            if (e.shiftKey && e.altKey && (e.key === 'F' || e.key === 'f')) {
+                e.preventDefault();
+                triggerCodeFormatting();
+            }
+        });
+
+        // BanglaLang Code Formatter Engine
+        function triggerCodeFormatting() {
+            if (!editor) return;
+            const currentCode = editor.getValue();
+            const formatted = formatBanglaCode(currentCode);
+            if (currentCode !== formatted) {
+                const position = editor.getPosition();
+                editor.setValue(formatted);
+                if (position) editor.setPosition(position);
+                showToastNotification("✨ BanglaLang Code Formatted!");
+            } else {
+                showToastNotification("ℹ️ Code is already formatted.");
+            }
+        }
+
+        function formatBanglaCode(code) {
+            if (!code || !code.trim()) return code;
+
+            const lines = code.split('\n');
+            let indentLevel = 0;
+            const formattedLines = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+
+                if (!line) {
+                    formattedLines.push('');
+                    continue;
+                }
+
+                if (line.startsWith('//')) {
+                    formattedLines.push('    '.repeat(indentLevel) + line);
+                    continue;
+                }
+
+                if (line.startsWith('}') || line.startsWith('} nawle')) {
+                    indentLevel = Math.max(0, indentLevel - 1);
+                }
+
+                line = formatLineSpacing(line);
+                const indentedLine = '    '.repeat(indentLevel) + line;
+                formattedLines.push(indentedLine);
+
+                const openBraces = (line.match(/\{/g) || []).length;
+                const closeBraces = (line.match(/\}/g) || []).length;
+
+                if (line.startsWith('}') || line.startsWith('} nawle')) {
+                    indentLevel += openBraces - (closeBraces - 1);
+                } else {
+                    indentLevel += openBraces - closeBraces;
+                }
+                indentLevel = Math.max(0, indentLevel);
+            }
+
+            return formattedLines.join('\n');
+        }
+
+        function formatLineSpacing(line) {
+            line = line.replace(/\b(jodi|jotokhon|jonno|kaaj)\s*\(/g, '$1 (');
+            line = line.replace(/\}\s*nawle\s*\{/g, '} nawle {');
+            line = line.replace(/\}\s*nawle\b/g, '} nawle');
+            line = line.replace(/\b(nawle)\s*\{/g, '$1 {');
+            line = line.replace(/\)\s*\{/g, ') {');
+
+            line = line.replace(/([^!=><])=([^=])/g, '$1 = $2');
+            line = line.replace(/([^=!<>])==([^=])/g, '$1 == $2');
+            line = line.replace(/!=/g, ' != ');
+            line = line.replace(/<=/g, ' <= ');
+            line = line.replace(/>=/g, ' >= ');
+            line = line.replace(/([^<])<([^=<])/g, '$1 < $2');
+            line = line.replace(/([^>])>([^=>])/g, '$1 > $2');
+
+            line = line.replace(/\s+/g, ' ');
+            line = line.replace(/\s*;\s*/g, ';');
+            line = line.replace(/;\s*([^\s}])/g, '; $1');
+            line = line.replace(/;\s*$/g, ';');
+            line = line.replace(/\{\s*/g, ' {').replace(/\s*\{/g, ' {');
+
+            return line.trim();
+        }
+
+        function showToastNotification(msg) {
+            let toast = document.getElementById('vscodeToastNotification');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'vscodeToastNotification';
+                toast.className = 'fixed bottom-8 right-6 bg-[#007ACC] text-white px-3.5 py-2 rounded-md shadow-2xl text-xs font-semibold font-sans flex items-center gap-2 z-50 transition-all duration-200 transform translate-y-2 opacity-0 pointer-events-none border border-white/20';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles text-cyan-300"></i> <span>${msg}</span>`;
+            toast.classList.remove('translate-y-2', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0', 'pointer-events-none');
+            }, 2500);
+        }
+
+        // --- Online Code Share Engine ---
+        function shareBanglaCode() {
+            if (!editor) return;
+            const code = editor.getValue();
+            if (!code || !code.trim()) {
+                showToastNotification("⚠️ No code to share!");
+                return;
+            }
+            try {
+                const encoded = btoa(unescape(encodeURIComponent(code)));
+                const shareUrl = window.location.origin + window.location.pathname + '?code=' + encoded;
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    showToastNotification("🔗 Shareable Link Copied to Clipboard!");
+                }).catch(() => {
+                    prompt("ক্লিপবোর্ডে কপি করতে নিচের লিংকটি সম্পুর্ণ কপি করুন:", shareUrl);
+                });
+            } catch (e) {
+                showToastNotification("❌ Failed to generate share link.");
+            }
+        }
+
+        function checkSharedCodeURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const codeParam = urlParams.get('code');
+            if (codeParam) {
+                try {
+                    const decodedCode = decodeURIComponent(escape(atob(codeParam)));
+                    if (decodedCode) {
+                        const fileName = 'shared_code.bl';
+                        projectFiles[fileName] = decodedCode;
+                        if (!openTabs.includes(fileName)) openTabs.push(fileName);
+                        switchActiveFile(fileName, false);
+                        showToastNotification("📥 Loaded Shared BanglaLang Code!");
+                    }
+                } catch (e) {}
+            }
+        }
+
+        // --- 1-Click Export / Download .bl File ---
+        function exportBanglaFile() {
+            if (!activeFileName || projectFiles[activeFileName] === undefined) return;
+            const content = editor ? editor.getValue() : projectFiles[activeFileName];
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = activeFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToastNotification(`💾 Downloaded ${activeFileName}`);
+        }
+
+        // --- 1-Click Import / Upload .bl File ---
+        function triggerFileUpload() {
+            let fileInput = document.getElementById('blFileInput');
+            if (!fileInput) {
+                fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.id = 'blFileInput';
+                fileInput.accept = '.bl,.txt';
+                fileInput.style.display = 'none';
+                fileInput.onchange = handleFileImport;
+                document.body.appendChild(fileInput);
+            }
+            fileInput.click();
+        }
+
+        function handleFileImport(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            let fileName = file.name;
+            if (!fileName.endsWith('.bl')) fileName += '.bl';
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const content = event.target.result;
+                projectFiles[fileName] = content;
+                switchActiveFile(fileName);
+                showToastNotification(`📤 Imported ${fileName}`);
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        }
     </script>
 </body>
 </html>

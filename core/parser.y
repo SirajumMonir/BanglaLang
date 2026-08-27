@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <time.h>
 
 extern int yylex();
 extern int line_num;
@@ -35,12 +37,16 @@ struct symbol symbol_table[MAX_SYMBOLS];
 int sym_count = 0;
 
 Value get_var(const char* name) {
+    if (strcmp(name, "gonit_pi") == 0 || strcmp(name, "PI") == 0) {
+        Value v; v.type = VAL_FLOAT; v.fnum = 3.141592653589793; v.num = 3; v.str = NULL; v.arr_elements = NULL; v.arr_size = 0;
+        return v;
+    }
     for (int i = sym_count - 1; i >= 0; i--) {
         if (strcmp(symbol_table[i].name, name) == 0) {
             return symbol_table[i].val;
         }
     }
-    fprintf(stderr, "Arre Bhai! '%s' namer kono variable to dhoro koro ni!\n", name);
+    fprintf(stderr, "Arre Bhai! '%s' namer kono variable to dhoro koro ni! (Line %d)\n", name, line_num);
     Value v;
     v.type = VAL_INT;
     v.num = 0;
@@ -102,7 +108,7 @@ typedef struct Node {
     char* id;
     int op;
     struct param_node* params;
-    struct Node *left, *right, *next, *else_part;
+    struct Node *left, *right, *next, *else_part, *body;
 } Node;
 
 Node* create_node(NodeType type) {
@@ -157,6 +163,8 @@ void print_value(Value v);
 int is_returning = 0;
 Value return_val;
 %}
+
+%error-verbose
 
 %union {
     int num;
@@ -235,7 +243,7 @@ statement:
         $$->left = $3;
         $$->right = $4;
         $$->else_part = $6;
-        $$->next = $8;
+        $$->body = $8;
     }
     | func_def { $$ = $1; }
     | FEROT exp SEMICOLON {
@@ -435,6 +443,30 @@ void print_value(Value v) {
     }
 }
 
+char* value_to_string(Value v) {
+    if (v.type == VAL_STR) {
+        return strdup(v.str ? v.str : "");
+    } else if (v.type == VAL_FLOAT) {
+        char buf[64];
+        sprintf(buf, "%g", v.fnum);
+        return strdup(buf);
+    } else if (v.type == VAL_ARR) {
+        char buf[2048] = "[";
+        for (int i = 0; i < v.arr_size; i++) {
+            char* s = value_to_string(v.arr_elements[i]);
+            strcat(buf, s);
+            free(s);
+            if (i < v.arr_size - 1) strcat(buf, ", ");
+        }
+        strcat(buf, "]");
+        return strdup(buf);
+    } else {
+        char buf[64];
+        sprintf(buf, "%d", v.num);
+        return strdup(buf);
+    }
+}
+
 /* --- AST Evaluator & Interpreter Runtime --- */
 Value eval(Node* n) {
     Value res;
@@ -492,10 +524,10 @@ Value eval(Node* n) {
                 if (idx >= 0 && idx < arr.arr_size) {
                     return arr.arr_elements[idx];
                 } else {
-                    fprintf(stderr, "Arre Bhai! Talika (Array) index range-er baire! Index: %d, Size: %d\n", idx, arr.arr_size);
+                    fprintf(stderr, "Arre Bhai! Talika (Array) index range-er baire! Index: %d, Size: %d (Line %d)\n", idx, arr.arr_size, line_num);
                 }
             } else {
-                fprintf(stderr, "Arre Bhai! '%s' kono talika (array) noy!\n", n->id);
+                fprintf(stderr, "Arre Bhai! '%s' kono talika (array) noy! (Line %d)\n", n->id, line_num);
             }
             return res;
         }
@@ -536,9 +568,69 @@ Value eval(Node* n) {
         }
 
         case TYPE_FUNC_CALL: {
+            if (strcmp(n->id, "gonit_sqrt") == 0) {
+                Value arg = eval(n->left);
+                double v = (arg.type == VAL_FLOAT) ? arg.fnum : arg.num;
+                res.type = VAL_FLOAT; res.fnum = sqrt(v);
+                return res;
+            }
+            if (strcmp(n->id, "gonit_pow") == 0) {
+                Value base = eval(n->left);
+                Value expv = (n->left && n->left->next) ? eval(n->left->next) : res;
+                double b = (base.type == VAL_FLOAT) ? base.fnum : base.num;
+                double e = (expv.type == VAL_FLOAT) ? expv.fnum : expv.num;
+                res.type = VAL_FLOAT; res.fnum = pow(b, e);
+                return res;
+            }
+            if (strcmp(n->id, "gonit_abs") == 0) {
+                Value arg = eval(n->left);
+                double v = (arg.type == VAL_FLOAT) ? arg.fnum : arg.num;
+                res.type = (arg.type == VAL_FLOAT) ? VAL_FLOAT : VAL_INT;
+                res.fnum = fabs(v); res.num = (int)fabs(v);
+                return res;
+            }
+            if (strcmp(n->id, "gonit_max") == 0) {
+                Value a = eval(n->left);
+                Value b = (n->left && n->left->next) ? eval(n->left->next) : res;
+                double av = (a.type == VAL_FLOAT) ? a.fnum : a.num;
+                double bv = (b.type == VAL_FLOAT) ? b.fnum : b.num;
+                res.type = (a.type == VAL_FLOAT || b.type == VAL_FLOAT) ? VAL_FLOAT : VAL_INT;
+                res.fnum = (av > bv) ? av : bv;
+                res.num = (av > bv) ? (int)av : (int)bv;
+                return res;
+            }
+            if (strcmp(n->id, "gonit_min") == 0) {
+                Value a = eval(n->left);
+                Value b = (n->left && n->left->next) ? eval(n->left->next) : res;
+                double av = (a.type == VAL_FLOAT) ? a.fnum : a.num;
+                double bv = (b.type == VAL_FLOAT) ? b.fnum : b.num;
+                res.type = (a.type == VAL_FLOAT || b.type == VAL_FLOAT) ? VAL_FLOAT : VAL_INT;
+                res.fnum = (av < bv) ? av : bv;
+                res.num = (av < bv) ? (int)av : (int)bv;
+                return res;
+            }
+            if (strcmp(n->id, "gonit_round") == 0) {
+                Value arg = eval(n->left);
+                double v = (arg.type == VAL_FLOAT) ? arg.fnum : arg.num;
+                res.type = VAL_INT; res.num = (int)round(v);
+                return res;
+            }
+            if (strcmp(n->id, "somoy") == 0) {
+                time_t now = time(NULL);
+                struct tm *t = localtime(&now);
+                char buf[64];
+                strftime(buf, sizeof(buf), "%Y-%m-%d %I:%M:%S %p", t);
+                res.type = VAL_STR; res.str = strdup(buf);
+                return res;
+            }
+            if (strcmp(n->id, "somoy_timestamp") == 0) {
+                res.type = VAL_INT; res.num = (int)time(NULL);
+                return res;
+            }
+
             struct func_symbol* fn = get_function(n->id);
             if (!fn) {
-                fprintf(stderr, "Arre Bhai! '%s' namer kono kaaj (function) to banawni!\n", n->id);
+                fprintf(stderr, "Arre Bhai! '%s' namer kono kaaj (function) to banawni! (Line %d)\n", n->id, line_num);
                 return res;
             }
 
@@ -566,16 +658,15 @@ Value eval(Node* n) {
             Value l = eval(n->left);
             Value r = eval(n->right);
 
-            if (l.type == VAL_STR || r.type == VAL_STR) {
+            if (l.type == VAL_STR || r.type == VAL_STR || l.type == VAL_ARR || r.type == VAL_ARR) {
                 if (n->op == PLUS) {
-                    char buf1[64], buf2[64];
-                    const char* s1 = (l.type == VAL_STR) ? l.str : 
-                                    (l.type == VAL_FLOAT ? (sprintf(buf1, "%g", l.fnum), buf1) : (sprintf(buf1, "%d", l.num), buf1));
-                    const char* s2 = (r.type == VAL_STR) ? r.str : 
-                                    (r.type == VAL_FLOAT ? (sprintf(buf2, "%g", r.fnum), buf2) : (sprintf(buf2, "%d", r.num), buf2));
+                    char* s1 = value_to_string(l);
+                    char* s2 = value_to_string(r);
                     char* concat = (char*)malloc(strlen(s1) + strlen(s2) + 1);
                     strcpy(concat, s1);
                     strcat(concat, s2);
+                    free(s1);
+                    free(s2);
                     res.type = VAL_STR;
                     res.str = concat;
                     return res;
@@ -602,7 +693,7 @@ Value eval(Node* n) {
                 else if (n->op == MUL) { res.type = VAL_FLOAT; res.fnum = lv * rv; }
                 else if (n->op == DIV) {
                     if (rv == 0.0) {
-                        fprintf(stderr, "Arre Bhai! Shunya (0) diye vag kora jay na!\n");
+                        fprintf(stderr, "Arre Bhai! Shunya (0) diye vag kora jay na! (Line %d)\n", line_num);
                         res.type = VAL_FLOAT; res.fnum = 0.0;
                     } else {
                         res.type = VAL_FLOAT; res.fnum = lv / rv;
@@ -625,7 +716,7 @@ Value eval(Node* n) {
             else if (n->op == MUL) res.num = lv * rv;
             else if (n->op == DIV) {
                 if (rv == 0) {
-                    fprintf(stderr, "Arre Bhai! Shunya (0) diye vag kora jay na!\n");
+                    fprintf(stderr, "Arre Bhai! Shunya (0) diye vag kora jay na! (Line %d)\n", line_num);
                     res.num = 0;
                 } else {
                     res.num = lv / rv;
@@ -691,7 +782,7 @@ Value eval(Node* n) {
                 int is_true = (cond.type == VAL_STR) ? (cond.str && strlen(cond.str) > 0) : 
                               (cond.type == VAL_FLOAT ? (cond.fnum != 0.0) : (cond.num != 0));
                 if (!is_true) break;
-                if (n->next) eval(n->next);
+                if (n->body) eval(n->body);
                 if (n->else_part) eval(n->else_part);
             }
             return res;
@@ -754,13 +845,13 @@ void print_node_ast_json(Node* n) {
         print_node_ast_json(n->else_part);
         has_child = 1;
     }
-    if (n->type == TYPE_FOR && n->next) {
+    if (n->body) {
         if (has_child) printf(",");
-        print_node_ast_json(n->next);
+        print_node_ast_json(n->body);
         has_child = 1;
     }
     printf("]}");
-    if (n->type != TYPE_FOR && n->next) {
+    if (n->next) {
         printf(",");
         print_node_ast_json(n->next);
     }

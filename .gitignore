@@ -20,3 +20,7 @@ backend/temp_*.bn
 # OS specific
 Thumbs.db
 .DS_Store
+
+# Python & Scratch
+__pycache__/
+scratch/

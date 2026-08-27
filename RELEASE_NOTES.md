@@ -183,16 +183,119 @@ bolo "Language: " + name;
 
 ---
 
+## 11. 💻 Section 11: Official Visual Studio Code (VS Code) IDE Theme Overhaul (v1.9 Upgrade)
+
+### 📌 Summary of Features Added & Bugs Fixed
+- **Official VS Code Hex Palette**:
+  - Implemented exact VS Code hex colors: Activity Bar (`#333333`), Primary Sidebar (`#252526`), Editor & Output Panel (`#1E1E1E`), Borders (`#3C3C3C`), and Status Bar (`#007ACC`).
+- **VS Code Titlebar & Menu System**:
+  - Integrated top window bar with standard IDE menus (`File`, `Edit`, `Selection`, `View`, `Go`, `Run`, `Help`), file title `main.bl`, and compiler status badge.
+- **Activity Bar & Primary Sidebar Layout**:
+  - Added 48px slim vertical activity bar on far left with 5 action icons (Explorer, Search, Source Control, Run/Debug, Extensions).
+  - Primary sidebar features collapsible `BANGLALANG SNIPPETS` accordion, 6 template buttons (`dhoro`, `jodi`, `jotokhon`, `complex`, `kaaj`, `talika`), and syntax reference guide.
+- **Monaco Code Editor Tab & Typography**:
+  - VS Code dark syntax highlighting theme (`#569CD6` keywords, `#CE9178` strings, `#B5CEA8` numbers), `main.bl` editor tab with cyan accent, `Fira Code` font, line numbers, and `Ctrl+Enter` execution shortcut.
+- **Integrated Output Panel Drawer & AST Visualizer**:
+  - Resizable bottom panel titled `OUTPUT` (terminal console) and `🌳 AST DIAGRAM` (interactive tree diagram with zoom, fit, pan, and fullscreen modal).
+- **Status Bar (100% Bottom Strip)**:
+  - 22px status bar displaying Git branch (`main*`), error/warning counts (`0 0`), line/col position (`Ln 1, Col 1`), spacing (`Spaces: 4`), encoding (`UTF-8`), line endings (`LF`), and `BanglaLang` mode.
+
+---
+
+## 12. 📢 Section 12: Smart Bangla Compiler Error Diagnostic System (v2.0 Upgrade)
+
+### 📌 Summary of Features Added & Bugs Fixed
+- **Bison Verbose Parser Mode (`%error-verbose`)**:
+  - Configured `core/parser.y` with Bison's `%error-verbose` directive for rich context on unexpected tokens and missing syntax elements.
+- **Smart Bangla Error Translator Engine (`formatBanglaDiagnosticError`)**:
+  - Implemented pattern-matching error translation engine in `backend/server.js` converting cryptic Flex/Bison errors into simple, clear Bengali diagnostics.
+  - Automatically handles:
+    - ❌ **Missing Semicolons**: `সেমিকোলনের (;) অভাব চিহ্নিতকরণ`
+    - ❌ **Bracket Mismatches**: `ফার্স্ট/সেকেন্ড ব্র্যাকেটের জোড়া ত্রুটি`
+    - ❌ **Unexpected EOF**: `কোড অসম্পূর্ণ থাকা`
+    - ❌ **Undefined Variables & Functions**: `'dhoro' বা 'kaaj' ছাড়া ব্যবহারের সতর্কতা`
+    - ❌ **Division by Zero & Array Bounds**: `শূণ্য দিয়ে ভাগ বা ইনডেক্স বহির্ভূত এক্সেস`
+- **Interactive Bangla Diagnostic Terminal Card (`frontend/index.html`)**:
+  - Designed red/emerald diagnostic card in terminal drawer displaying:
+    - ❌ **Error Title**
+    - 📌 **Exact Line Number**
+    - 📝 **Bengali Explanation**
+    - 💡 **Actionable Solution Tip (সমাধান পরামর্শ)**
+    - 🔍 Collapsible Raw Compiler Output dropdown for advanced debugging.
+
+---
+
+## 13. 🐞 Section 13: FOR Loop Body Pointer Collision & Array String Concatenation Fix (v2.1 Upgrade)
+
+### 📌 Summary of Features Added & Bugs Fixed
+- **FOR Loop Dedicated `body` Pointer (`core/parser.y`)**:
+  - Resolved `TYPE_FOR` loop body pointer collision in Bison AST structure where `$$->next` was shared between loop body and program statement chaining.
+  - Added dedicated `body` pointer to `Node` struct (`$$->body = $8;`).
+  - Completely eliminated the 5th extra iteration bug in `jonno` (FOR loop) and fixed the resulting false `Array Index Out of Bounds` error on Template 6.
+- **Array String Formatting in Concatenation (`value_to_string`)**:
+  - Implemented `value_to_string` helper function in `core/parser.y` and `setup_project.py`.
+  - When concatenating strings with arrays (`+`), arrays are now formatted properly as `[10, 20, 30, 40]` instead of printing default integer `0`.
+
+---
+
+## 14. ✨ Section 14: Auto Code Formatter (BanglaLang Prettier: `Shift + Alt + F`) (v2.2 Upgrade)
+
+### 📌 Summary of Features Added & Bugs Fixed
+- **BanglaLang Code Formatter Engine (`formatBanglaCode`)**:
+  - Built line-by-line indenter and tokenizer formatting 4-space indentations for nested `{ ... }` blocks.
+  - Standardized keyword spacing (`dhoro`, `bolo`, `jodi`, `nawle`, `jotokhon`, `kaaj`, `jonno`, `ferot`, `talika`).
+  - Formatted binary operator spacing (`=`, `+`, `-`, `*`, `/`, `==`, `!=`, `<=`, `>=`, `<`, `>`).
+  - Preserved single-line comments (`// ...`) and quote strings.
+- **VS Code Keyboard Shortcut (`Shift + Alt + F`)**:
+  - Registered `Shift + Alt + F` action in Monaco Editor and global document keyboard listener.
+- **UI Format Buttons & VS Code Status Toast**:
+  - Added **Format (Shift+Alt+F)** button in top header bar next to `Run` and magic wand icon in editor tab action toolbar.
+  - Displays `✨ BanglaLang Code Formatted!` toast in the bottom right corner upon formatting code.
+
+---
+
+## 15. 🚀 Section 15: Multi-File Project Explorer (LocalStorage Sync) & Standard Math/Time Library (v3.0 Major Release)
+
+### 📌 Summary of Features Added & Bugs Fixed
+- **Multi-File Project Explorer UI (`frontend/index.html`)**:
+  - Integrated `PROJECT FILES` accordion tree in the Primary Sidebar.
+  - Added **New File** (`📄+`), **Save Project** (`💾`), **Rename File** (`✏️`), and **Delete File** (`🗑️`) controls.
+  - Built interactive editor tab manager dynamically rendering open `.bl` file tabs (`main.bl`, `math_helper.bl`).
+- **Browser LocalStorage Persistence Engine**:
+  - Implemented `FileManager` JavaScript module saving all files, tab states, and active code to `localStorage`.
+  - Added auto-save on typing (`editor.onDidChangeModelContent`), ensuring zero data loss across browser refreshes (F5).
+- **BanglaLang Built-in Math & Time Standard Library (`core/parser.y`)**:
+  - Integrated built-in constant: `gonit_pi` / `PI` (`3.14159265`).
+  - Integrated built-in C `<math.h>` functions: `gonit_sqrt(x)`, `gonit_pow(x, y)`, `gonit_abs(x)`, `gonit_max(a, b)`, `gonit_min(a, b)`, `gonit_round(x)`.
+  - Integrated built-in time function: `somoy()` returning Unix timestamp in seconds using C `<time.h>`.
+  - Added Example Template 7: `7. Math & Time Library`.
+
+---
+
+## 16. 🔗 Section 16: Online Code Sharing & 1-Click `.bl` Export/Import (v3.1 Upgrade)
+
+### 📌 Summary of Features Added & Bugs Fixed
+- **Online Code Share Engine (`shareBanglaCode`)**:
+  - Encodes active Monaco Editor code using UTF-8 safe Base64 URL parameter (`?code=...`).
+  - Automatically copies shareable URL to clipboard and displays `🔗 Shareable Link Copied to Clipboard!`.
+  - Automatically decodes shared URLs on page load and opens `shared_code.bl` tab in Monaco Editor.
+- **1-Click `.bl` File Export / Download (`exportBanglaFile`)**:
+  - Triggers instant browser download of active file (e.g. `main.bl` or `math_helper.bl`) as `.bl` UTF-8 file.
+- **1-Click `.bl` File Import / Upload (`uploadBanglaFile`)**:
+  - Adds file input picker allowing users to upload local `.bl` files directly into the File Explorer and editor.
+
+---
+
 ## 🛠️ Summary of Changed Files
 
 | File Path | Description of Upgrades |
 | :--- | :--- |
 | [`core/lexer.l`](file:///d:/Compiler%20Design/BanglaLang/core/lexer.l) | Flex rules for `kaaj`, `ferot`, `nao`, `shotto`, `mittha`, `talika`, `jonno`, floats & brackets |
-| [`core/parser.y`](file:///d:/Compiler%20Design/BanglaLang/core/parser.y) | Bison grammar, AST evaluator, and `--ast` JSON tree generator |
-| [`backend/server.js`](file:///d:/Compiler%20Design/BanglaLang/backend/server.js) | Express API server parsing compiler stdout for AST JSON payloads |
-| [`frontend/index.html`](file:///d:/Compiler%20Design/BanglaLang/frontend/index.html) | Strict viewport height lock, Monaco 13.5/21px typography, h-13 header, compact UX padding |
-| [`setup_project.py`](file:///d:/Compiler%20Design/BanglaLang/setup_project.py) | Python project generator synced with complete core, backend, and v1.8 frontend html code |
-| [`RELEASE_NOTES.md`](file:///d:/Compiler%20Design/BanglaLang/RELEASE_NOTES.md) | Release history documentation updated through v1.8 Viewport Height & UX overhaul |
+| [`core/parser.y`](file:///d:/Compiler%20Design/BanglaLang/core/parser.y) | Bison grammar with `<math.h>`, `<time.h>`, `gonit_*` functions, `somoy()` formatted date-time, and `gonit_pi` constant |
+| [`backend/server.js`](file:///d:/Compiler%20Design/BanglaLang/backend/server.js) | Express API server with AST Evaluator for built-in math/time functions and output sanitizer |
+| [`frontend/index.html`](file:///d:/Compiler%20Design/BanglaLang/frontend/index.html) | VS Code IDE UI with Code Share button, `.bl` Export/Download, `.bl` Import/Upload, Multi-File Explorer, and LocalStorage persistence |
+| [`setup_project.py`](file:///d:/Compiler%20Design/BanglaLang/setup_project.py) | Python project generator synced with complete core, backend v3.1, and frontend code |
+| [`RELEASE_NOTES.md`](file:///d:/Compiler%20Design/BanglaLang/RELEASE_NOTES.md) | Release history documentation updated through v3.1 Code Sharing & Export/Import release |
 
 ---
-*BanglaLang v1.8 — Empowering Bengali Programming* 🇧🇩
+*BanglaLang v3.1 — Empowering Bengali Programming* 🇧🇩
