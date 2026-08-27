@@ -62,8 +62,8 @@ app.post('/api/run', (req, res) => {
     let stderrData = '';
     let isFinished = false;
 
-    // Spawn child process with direct stdin stream (immune to Windows space in path bugs)
-    const child = spawn(BINARY_PATH, [], {
+    // Spawn child process with direct stdin stream and --ast flag
+    const child = spawn(BINARY_PATH, ['--ast'], {
         windowsHide: true
     });
 
@@ -74,6 +74,7 @@ app.post('/api/run', (req, res) => {
             child.kill();
             return res.json({
                 output: stdoutData,
+                ast: null,
                 error: 'Execution Timed Out (5s limit exceeded). Infinite loop sombhoboto!',
                 executionTimeMs: Date.now() - startTime
             });
@@ -94,6 +95,7 @@ app.post('/api/run', (req, res) => {
         clearTimeout(timer);
         res.json({
             output: stdoutData,
+            ast: null,
             error: `Compiler execution error: ${err.message}`,
             executionTimeMs: Date.now() - startTime
         });
@@ -103,8 +105,19 @@ app.post('/api/run', (req, res) => {
         if (isFinished) return;
         isFinished = true;
         clearTimeout(timer);
+
+        let astData = null;
+        const astMatch = stdoutData.match(/---AST_JSON_START---\s*([\s\S]*?)\s*---AST_JSON_END---/);
+        if (astMatch) {
+            try {
+                astData = JSON.parse(astMatch[1]);
+            } catch (e) {}
+            stdoutData = stdoutData.replace(/---AST_JSON_START---\s*[\s\S]*?\s*---AST_JSON_END---\s*/, '');
+        }
+
         res.json({
             output: stdoutData,
+            ast: astData,
             error: stderrData,
             exitCode: codeStatus,
             executionTimeMs: Date.now() - startTime

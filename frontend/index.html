@@ -64,19 +64,25 @@
         }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col font-sans overflow-hidden">
+<body class="text-slate-100 h-screen flex flex-col font-sans overflow-hidden bg-[#05070c]">
     <!-- Header -->
-    <header class="h-16 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur px-6 flex items-center justify-between shrink-0 z-10">
+    <header class="h-13 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur px-5 flex items-center justify-between shrink-0 z-10">
         <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20 font-bengali text-lg">
-                বাং
-            </div>
-            <div>
-                <div class="flex items-center gap-2">
-                    <h1 class="text-lg font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">BanglaLang</h1>
-                    <span class="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">v1.0 Compiler</span>
+            <button id="sidebarToggleBtn" onclick="toggleLeftSidebar()" class="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-slate-300 hover:text-emerald-400 font-mono text-xs transition flex items-center gap-2 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                <span id="sidebarToggleText" class="font-bold">সাইডবার বন্ধ</span>
+            </button>
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20 font-bengali text-base">
+                    বাং
                 </div>
-                <p class="text-xs text-slate-500">বাংলা প্রোগ্রামিং ল্যাঙ্গুয়েজ ক্লাউড প্লেগ্রাউন্ড</p>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">BanglaLang</h1>
+                        <span class="text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">v1.0 Compiler</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">বাংলা প্রোগ্রামিং ল্যাঙ্গুয়েজ ক্লাউড প্লেগ্রাউন্ড</p>
+                </div>
             </div>
         </div>
 
@@ -86,118 +92,198 @@
                 <span id="statusDot" class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
                 <span id="statusText">Checking Backend...</span>
             </div>
-            <button id="runBtn" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold px-6 py-2 rounded-xl text-sm transition-all duration-200 flex items-center gap-2 shadow-lg shadow-emerald-500/25 active:scale-95">
+            <button id="runBtn" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold px-5 py-1.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-2 shadow-lg shadow-emerald-500/25 active:scale-95">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 <span>কোড রান করো (Ctrl+Enter)</span>
             </button>
         </div>
     </header>
 
-    <!-- Main Bento Grid Layout -->
-    <main class="flex-1 p-4 grid grid-cols-12 gap-4 overflow-hidden">
-        <!-- Left Sidebar / Snippets & Docs Bento (Col 1-3) -->
-        <div class="col-span-12 md:col-span-3 flex flex-col gap-4 overflow-hidden">
+    <!-- Main Bento Split Layout -->
+    <main class="flex-1 h-[calc(100vh-3.25rem)] p-3 flex items-stretch gap-3 overflow-hidden min-h-0 relative" id="mainContainer">
+        <!-- Left Sidebar / Snippets & Docs Bento -->
+        <div id="leftPanel" class="w-76 shrink-0 flex flex-col gap-2.5 overflow-hidden transition-all duration-200">
             <!-- Snippets Card -->
-            <div class="bento-card rounded-2xl p-4 flex flex-col shrink-0">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">কোড এক্সাম্পল</span>
+            <div class="bento-card rounded-2xl p-3 flex flex-col shrink-0">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">কোড এক্সাম্পল</span>
                     <span class="text-[10px] text-emerald-400 font-mono">Templates</span>
                 </div>
-                <div class="grid grid-cols-1 gap-2">
-                    <button onclick="loadSnippet('vars')" class="snippet-btn text-left text-xs p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
+                <div class="grid grid-cols-1 gap-1.5">
+                    <button onclick="loadSnippet('vars')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
                         <span class="font-medium text-slate-200">১. ভ্যারিয়েবল ও গণিত</span>
                         <span class="text-[10px] font-mono text-slate-500">dhoro / bolo</span>
                     </button>
-                    <button onclick="loadSnippet('logic')" class="snippet-btn text-left text-xs p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
+                    <button onclick="loadSnippet('logic')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
                         <span class="font-medium text-slate-200">২. শর্ত যাচাই (If-Else)</span>
                         <span class="text-[10px] font-mono text-slate-500">jodi / nawle</span>
                     </button>
-                    <button onclick="loadSnippet('loop')" class="snippet-btn text-left text-xs p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
+                    <button onclick="loadSnippet('loop')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
                         <span class="font-medium text-slate-200">৩. লুপ বা পুনরাবৃত্তি</span>
                         <span class="text-[10px] font-mono text-slate-500">jotokhon</span>
                     </button>
-                    <button onclick="loadSnippet('complex')" class="snippet-btn text-left text-xs p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
-                        <span class="font-medium text-slate-200">৪. লজিক ও ফ্যাক্টোরিয়াল</span>
+                    <button onclick="loadSnippet('complex')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
+                        <span class="font-medium text-slate-200">৪. লজিক ও ফ্যাক্টোরিয়াল</span>
                         <span class="text-[10px] font-mono text-slate-500">Full Demo</span>
+                    </button>
+                    <button onclick="loadSnippet('func')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
+                        <span class="font-medium text-slate-200">৫. ফাংশন ও ফ্লট সংখ্যা</span>
+                        <span class="text-[10px] font-mono text-slate-500">kaaj / ferot</span>
+                    </button>
+                    <button onclick="loadSnippet('array')" class="snippet-btn text-left text-xs p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-between">
+                        <span class="font-medium text-slate-200">৬. তালিকা ও For-Loop</span>
+                        <span class="text-[10px] font-mono text-slate-500">talika / jonno</span>
                     </button>
                 </div>
             </div>
 
             <!-- Syntax Reference Bento -->
-            <div class="bento-card rounded-2xl p-4 flex-1 overflow-y-auto">
-                <div class="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-3">সিনট্যাক্স সহায়িকা (Cheat Sheet)</div>
-                <div class="space-y-3 text-xs">
-                    <div class="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+            <div class="bento-card rounded-2xl p-3 flex-1 overflow-y-auto min-h-0">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono mb-2">সিনট্যাক্স সহায়িকা (Cheat Sheet)</div>
+                <div class="space-y-2 text-xs">
+                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
                         <div class="font-mono text-emerald-400 font-semibold">dhoro x = 10;</div>
-                        <div class="text-slate-400 text-[11px]">ভ্যারিয়েবল ডিফাইন করতে ব্যবহৃত হয়</div>
+                        <div class="text-slate-400 text-[10px]">ভ্যারিয়েবল ডিফাইন করতে ব্যবহৃত হয়</div>
                     </div>
-                    <div class="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
                         <div class="font-mono text-cyan-400 font-semibold">bolo x + 5;</div>
-                        <div class="text-slate-400 text-[11px]">স্ক্রিনে আউটপুট প্রিন্ট করে</div>
+                        <div class="text-slate-400 text-[10px]">স্ক্রিনে আউটপুট প্রিন্ট করে</div>
                     </div>
-                    <div class="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
                         <div class="font-mono text-amber-400 font-semibold">jodi (a == b) { ... } nawle { ... }</div>
-                        <div class="text-slate-400 text-[11px]">শর্তাধীন লজিক্যাল ব্রাঞ্চিং</div>
+                        <div class="text-slate-400 text-[10px]">শর্তাধীন লজিক্যাল ব্রাঞ্চিং</div>
                     </div>
-                    <div class="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
                         <div class="font-mono text-indigo-400 font-semibold">jotokhon (x > 0) { ... }</div>
-                        <div class="text-slate-400 text-[11px]">শর্ত পূরণ হওয়া পর্যন্ত লুপ চলে</div>
+                        <div class="text-slate-400 text-[10px]">শর্ত পূরণ হওয়া পর্যন্ত লুপ চলে</div>
+                    </div>
+                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                        <div class="font-mono text-pink-400 font-semibold">kaaj fn(a, b) { ferot a + b; }</div>
+                        <div class="text-slate-400 text-[10px]">কাস্টম ফাংশন ডিক্লেয়ারেশন ও রিটার্ন</div>
+                    </div>
+                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                        <div class="font-mono text-violet-400 font-semibold">dhoro flag = shotto;</div>
+                        <div class="text-slate-400 text-[10px]">বুলিয়ান কন্সট্যান্ট (shotto/mittha)</div>
+                    </div>
+                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                        <div class="font-mono text-amber-400 font-semibold">dhoro talika arr = [10, 20];</div>
+                        <div class="text-slate-400 text-[10px]">অ্যারে / তালিকা ডাটা স্ট্রাকচার</div>
+                    </div>
+                    <div class="p-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                        <div class="font-mono text-emerald-400 font-semibold">jonno (dhoro i=0; i&lt;3; dhoro i=i+1;)</div>
+                        <div class="text-slate-400 text-[10px]">নির্দিষ্ট লুপ / For-Loop</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Middle Editor Bento (Col 4-8) -->
-        <div class="col-span-12 md:col-span-5 flex flex-col bento-card rounded-2xl overflow-hidden">
-            <!-- Editor Top Bar -->
-            <div class="h-10 bg-slate-950/80 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
-                <div class="flex items-center gap-2">
-                    <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
-                    <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
-                    <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
-                    <span class="ml-2 font-mono text-xs text-slate-400">main.bl</span>
-                </div>
-                <button onclick="clearEditor()" class="text-[11px] text-slate-500 hover:text-slate-300 font-mono transition">রিসেট কোড</button>
-            </div>
-            <!-- Monaco Container -->
-            <div class="flex-1 relative bg-[#090d16]">
-                <div id="editorContainer" class="absolute inset-0"></div>
-            </div>
-        </div>
-
-        <!-- Right Terminal & Stats Bento (Col 9-12) -->
-        <div class="col-span-12 md:col-span-4 flex flex-col gap-4 overflow-hidden">
-            <!-- Execution Stats Card -->
-            <div class="bento-card rounded-2xl p-4 shrink-0 grid grid-cols-3 gap-2 text-center font-mono">
-                <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                    <div class="text-[10px] text-slate-500">EXEC TIME</div>
-                    <div id="execTimeVal" class="text-xs font-bold text-emerald-400">0 ms</div>
-                </div>
-                <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                    <div class="text-[10px] text-slate-500">EXIT CODE</div>
-                    <div id="exitCodeVal" class="text-xs font-bold text-slate-300">0</div>
-                </div>
-                <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                    <div class="text-[10px] text-slate-500">COMPILER</div>
-                    <div class="text-xs font-bold text-cyan-400">C/Flex/Bison</div>
-                </div>
-            </div>
-
-            <!-- Terminal Output Card -->
-            <div class="bento-card rounded-2xl flex-1 flex flex-col overflow-hidden">
-                <div class="h-10 bg-slate-950/80 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
+        <!-- Middle Workspace (Editor + Bottom Output Drawer) -->
+        <div id="middleWorkspace" class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+            <!-- Middle Editor Bento -->
+            <div id="editorPanel" class="flex-1 flex flex-col bento-card rounded-2xl overflow-hidden min-w-[280px] min-h-[150px]">
+                <!-- Editor Top Bar -->
+                <div class="h-9 bg-slate-950/80 border-b border-slate-800 px-3.5 flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        <span class="text-xs font-mono font-bold text-slate-300">টার্মিনাল আউটপুট (Terminal Output)</span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block"></span>
+                        <span class="ml-2 font-mono text-xs text-slate-400">main.bl</span>
                     </div>
-                    <button onclick="clearTerminal()" class="text-[11px] font-mono text-slate-500 hover:text-slate-300">ক্লিয়ার</button>
+                    <button onclick="clearEditor()" class="text-[11px] text-slate-500 hover:text-slate-300 font-mono transition">রিসেট কোড</button>
                 </div>
-                <div id="terminal" class="flex-1 p-4 font-mono text-xs overflow-y-auto terminal-glow bg-[#03060a] leading-relaxed text-slate-300 select-text">
-                    <div class="text-slate-600 italic">// কোড রান করলে ফলাফল এখানে প্রদর্শিত হবে...</div>
+                <!-- Monaco Container -->
+                <div class="flex-1 relative bg-[#090d16]">
+                    <div id="editorContainer" class="absolute inset-0"></div>
+                </div>
+            </div>
+
+            <!-- Bottom Resizer Splitter Bar -->
+            <div id="resizerBottom" class="h-2 hover:h-2 bg-transparent hover:bg-cyan-500/30 cursor-row-resize flex items-center justify-center group shrink-0 transition-colors z-20 my-1 rounded-full" title="Drag to Resize Output Panel">
+                <div class="h-1 w-12 bg-slate-800 group-hover:bg-cyan-400 rounded-full transition-colors"></div>
+            </div>
+
+            <!-- Bottom Output Panel Drawer (VS Code Style) -->
+            <div id="bottomOutputPanel" class="h-[250px] shrink-0 flex flex-col gap-0 overflow-hidden min-h-[100px]">
+                <!-- Unified Output Card Container -->
+                <div id="outputCardContainer" class="bento-card rounded-2xl flex-1 flex flex-col overflow-hidden h-full">
+                    <div class="h-9 bg-slate-950/80 border-b border-slate-800 px-3 flex items-center justify-between shrink-0">
+                        <div class="flex items-center gap-2 font-mono text-xs">
+                            <button id="tabTerminalBtn" onclick="switchViewTab('terminal')" class="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40 flex items-center gap-1.5 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <span>টার্মিনাল (Console)</span>
+                            </button>
+                            <button id="tabAstBtn" onclick="switchViewTab('ast')" class="px-2.5 py-0.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent transition flex items-center gap-1.5">
+                                <span>🌳 AST ট্রি (Diagram)</span>
+                            </button>
+                        </div>
+
+                        <!-- Exec Stats Inline Summary -->
+                        <div class="hidden sm:flex items-center gap-3 font-mono text-[11px] text-slate-400 bg-slate-900/60 px-3 py-0.5 rounded-lg border border-slate-800">
+                            <div>TIME: <span id="execTimeVal" class="text-emerald-400 font-bold">0 ms</span></div>
+                            <div class="text-slate-600">|</div>
+                            <div>EXIT: <span id="exitCodeVal" class="text-slate-200 font-bold">0</span></div>
+                            <div class="text-slate-600">|</div>
+                            <div class="text-cyan-400 font-bold">C/Flex/Bison</div>
+                        </div>
+
+                        <!-- AST Diagram Toolbar Controls -->
+                        <div id="astControls" class="hidden flex items-center gap-1 font-mono text-[11px]">
+                            <button onclick="adjustAstZoom(-0.15)" title="Zoom Out" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition">➖</button>
+                            <span id="astZoomVal" class="text-cyan-400 font-bold px-0.5 min-w-[32px] text-center">100%</span>
+                            <button onclick="adjustAstZoom(0.15)" title="Zoom In" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition">➕</button>
+                            <button onclick="autoFitAstInline()" title="Fit to Panel" class="px-1.5 py-0.5 rounded bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 transition">🔍 ফিট</button>
+                            <button onclick="resetAstZoom()" title="Reset Zoom" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 transition">↺</button>
+                            <button onclick="openAstFullscreen()" title="Fullscreen View" class="ml-1 px-2 py-0.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700 text-cyan-300 flex items-center gap-1 font-bold transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-2V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                                <span>ফুলস্ক্রিন</span>
+                            </button>
+                        </div>
+
+                        <button onclick="clearTerminal()" class="text-[11px] font-mono text-slate-500 hover:text-slate-300">ক্লিয়ার</button>
+                    </div>
+                    <div id="terminal" class="flex-1 p-3.5 font-mono text-[12px] leading-[1.6] overflow-y-auto terminal-glow bg-[#03060a] text-slate-300 select-text">
+                        <div class="text-slate-600 italic">// কোড রান করলে ফলাফল এখানে প্রদর্শিত হবে...</div>
+                    </div>
+                    <div id="astViewContainer" class="flex-1 overflow-auto terminal-glow bg-[#03060a] hidden relative select-none cursor-grab active:cursor-grabbing p-6">
+                        <div id="astScaleWrapper" class="inline-block transition-transform duration-100 origin-top-left min-w-max">
+                            <div id="astTreeContent" class="inline-block min-w-max p-4">
+                                <div class="text-slate-600 italic mt-8 font-mono text-xs">// কোড রান করলে AST সিনট্যাক্স ট্রি এখানে দেখাবে...</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
+
+    <!-- AST Fullscreen Modal Overlay -->
+    <div id="astModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex flex-col p-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 shrink-0">
+            <div class="flex items-center gap-4">
+                <span class="text-base font-bold font-mono text-cyan-400 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                    🌳 AST (Abstract Syntax Tree) Fullscreen Visualizer
+                </span>
+                <div class="flex items-center gap-1.5 font-mono text-xs bg-slate-900/80 px-3 py-1 rounded-xl border border-slate-800">
+                    <button onclick="adjustAstZoomModal(-0.15)" title="Zoom Out" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition">➖</button>
+                    <span id="astModalZoomVal" class="text-cyan-400 font-bold px-2 min-w-[40px] text-center">100%</span>
+                    <button onclick="adjustAstZoomModal(0.15)" title="Zoom In" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition">➕</button>
+                    <button onclick="autoFitAstModal()" title="Fit Tree to Screen" class="px-3 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-700 text-cyan-300 font-bold transition flex items-center gap-1">
+                        🔍 স্ক্রিনে ফিট করো
+                    </button>
+                    <button onclick="resetAstZoomModal()" title="Reset to 100%" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition">↺ 100%</button>
+                </div>
+            </div>
+            <button onclick="closeAstFullscreen()" class="px-3.5 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 font-mono text-xs font-bold transition flex items-center gap-1.5">
+                ✕ বন্ধ করুন (Esc)
+            </button>
+        </div>
+        <div id="astModalContainer" class="flex-1 overflow-auto bg-[#03060a] rounded-2xl border border-slate-800/80 p-8 relative cursor-grab active:cursor-grabbing select-none">
+            <div id="astModalScaleWrapper" class="inline-block transition-transform duration-100 origin-top-left min-w-max">
+                <div id="astModalTreeContent" class="inline-block min-w-max p-4"></div>
+            </div>
+        </div>
+    </div>
 
     <script>
         let editor;
@@ -247,7 +333,31 @@ jotokhon (n > 0) {
     dhoro n = n - 1;
 }
 
-bolo "5 er Factorial holo: " + fact;`
+bolo "5 er Factorial holo: " + fact;`,
+
+            func: `// ৫. কাস্টম ফাংশন, ফ্লট এবং রিটার্ন লজিক
+kaaj guun(x, y) {
+    ferot x * y;
+}
+
+dhoro a = 4.5;
+dhoro b = 2.0;
+dhoro res = guun(a, b);
+
+bolo "Result: " + res;
+
+dhoro test_bool = shotto;
+jodi (test_bool) {
+    bolo "Booleans & Functions Active!";
+}`,
+
+            array: `// ৬. তালিকা (Array) ও নির্দিষ্ট লুপ (jonno / For-Loop)
+dhoro talika numbers = [10, 20, 30, 40];
+bolo "প্রথমে তালিকা: " + numbers;
+
+jonno (dhoro i = 0; i < 4; dhoro i = i + 1;) {
+    bolo "Item " + i + ": " + numbers[i];
+}`
         };
 
         // Monaco Language definition for BanglaLang
@@ -255,16 +365,17 @@ bolo "5 er Factorial holo: " + fact;`
         require(['vs/editor/editor.main'], function() {
             monaco.languages.register({ id: 'banglalang' });
             monaco.languages.setMonarchTokensProvider('banglalang', {
-                keywords: ['dhoro', 'bolo', 'jodi', 'nawle', 'jotokhon'],
+                keywords: ['dhoro', 'bolo', 'jodi', 'nawle', 'jotokhon', 'kaaj', 'ferot', 'nao', 'shotto', 'mittha', 'talika', 'jonno'],
                 tokenizer: {
                     root: [
-                        [/\b(dhoro|bolo|jodi|nawle|jotokhon)\b/, 'keyword'],
+                        [/\b(dhoro|bolo|jodi|nawle|jotokhon|kaaj|ferot|nao|shotto|mittha|talika|jonno)\b/, 'keyword'],
                         [/"([^"\\]|\\.)*"/, 'string'],
+                        [/\b[0-9]+\.[0-9]+\b/, 'number'],
                         [/\b[0-9]+\b/, 'number'],
                         [/\b[a-zA-Z_][a-zA-Z0-9_]*\b/, 'variable'],
                         [/\/\/.*$/, 'comment'],
                         [/[+\-*\/=<>!]+/, 'operator'],
-                        [/[{}();]/, 'delimiter']
+                        [/[{}();,\[\]]/, 'delimiter']
                     ]
                 }
             });
@@ -296,8 +407,8 @@ bolo "5 er Factorial holo: " + fact;`
                 language: 'banglalang',
                 theme: 'banglaCyberTheme',
                 automaticLayout: true,
-                fontSize: 14,
-                lineHeight: 24,
+                fontSize: 13.5,
+                lineHeight: 21,
                 fontFamily: '"Fira Code", "Consolas", "Courier New", monospace',
                 fontLigatures: true,
                 letterSpacing: 0,
@@ -310,7 +421,7 @@ bolo "5 er Factorial holo: " + fact;`
                 minimap: { enabled: false },
                 lineNumbers: 'on',
                 scrollBeyondLastLine: false,
-                padding: { top: 12, bottom: 12 }
+                padding: { top: 10, bottom: 10 }
             });
 
             // Re-measure fonts once web fonts finish loading asynchronously
@@ -347,9 +458,299 @@ bolo "5 er Factorial holo: " + fact;`
             if (editor) editor.setValue('// Notun BanglaLang Code likhun...\n');
         }
 
+        let isLeftCollapsed = false;
+        let savedLeftWidth = 304;
+
+        function toggleLeftSidebar() {
+            const leftPanel = document.getElementById('leftPanel');
+            const toggleText = document.getElementById('sidebarToggleText');
+
+            if (isLeftCollapsed) {
+                leftPanel.classList.remove('hidden', 'opacity-0', 'pointer-events-none', 'w-0');
+                leftPanel.style.width = savedLeftWidth + 'px';
+                toggleText.innerText = 'সাইডবার বন্ধ';
+                isLeftCollapsed = false;
+            } else {
+                savedLeftWidth = leftPanel.offsetWidth || 304;
+                leftPanel.style.width = '0px';
+                leftPanel.classList.add('opacity-0', 'pointer-events-none', 'w-0', 'hidden');
+                toggleText.innerText = 'সাইডবার খুলুন';
+                isLeftCollapsed = true;
+            }
+            setTimeout(() => {
+                if (editor) editor.layout();
+                if (activeTab === 'ast') autoFitAstInline();
+            }, 220);
+        }
+
+        // Setup Resizable Splitters
+        function initSplitResizers() {
+            const bottomOutputPanel = document.getElementById('bottomOutputPanel');
+            const resizerBottom = document.getElementById('resizerBottom');
+
+            function makeVerticalResizable(resizer, bottomPanel) {
+                let startY, startHeight;
+
+                resizer.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    startY = e.clientY;
+                    startHeight = bottomPanel.offsetHeight;
+
+                    document.body.style.cursor = 'row-resize';
+                    document.body.style.userSelect = 'none';
+
+                    function onMouseMove(moveEvent) {
+                        const delta = startY - moveEvent.clientY;
+                        let newHeight = Math.min(Math.max(120, startHeight + delta), 600);
+                        bottomPanel.style.height = newHeight + 'px';
+                        if (editor) editor.layout();
+                    }
+
+                    function onMouseUp() {
+                        document.body.style.cursor = '';
+                        document.body.style.userSelect = '';
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                        if (editor) editor.layout();
+                        if (activeTab === 'ast') autoFitAstInline();
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+            }
+
+            if (resizerBottom && bottomOutputPanel) {
+                makeVerticalResizable(resizerBottom, bottomOutputPanel);
+            }
+        }
+
+        window.addEventListener('load', initSplitResizers);
+
+        function applyScaleToWrapper(wrapperId, scale) {
+            const wrapper = document.getElementById(wrapperId);
+            if (!wrapper) return;
+            if ('zoom' in wrapper.style) {
+                wrapper.style.zoom = scale;
+                wrapper.style.transform = '';
+            } else {
+                wrapper.style.transform = `scale(${scale})`;
+                wrapper.style.transformOrigin = 'top left';
+            }
+        }
+
+        function adjustAstZoom(delta) {
+            currentZoom = Math.min(Math.max(0.1, currentZoom + delta), 2.5);
+            const valLabel = document.getElementById('astZoomVal');
+            if (valLabel) valLabel.innerText = Math.round(currentZoom * 100) + '%';
+            applyScaleToWrapper('astScaleWrapper', currentZoom);
+        }
+
+        function resetAstZoom() {
+            currentZoom = 1.0;
+            const valLabel = document.getElementById('astZoomVal');
+            if (valLabel) valLabel.innerText = '100%';
+            applyScaleToWrapper('astScaleWrapper', 1.0);
+        }
+
+        function autoFitAstInline() {
+            const container = document.getElementById('astViewContainer');
+            const treeContent = document.getElementById('astTreeContent');
+            if (!container || !treeContent) return;
+
+            applyScaleToWrapper('astScaleWrapper', 1.0);
+
+            const containerWidth = container.clientWidth - 32;
+            const treeWidth = treeContent.scrollWidth;
+
+            if (treeWidth > 0 && containerWidth > 0) {
+                let fitScale = Math.min(1.0, containerWidth / treeWidth);
+                fitScale = Math.max(0.15, fitScale);
+                
+                currentZoom = fitScale;
+                const valLabel = document.getElementById('astZoomVal');
+                if (valLabel) valLabel.innerText = Math.round(currentZoom * 100) + '%';
+                applyScaleToWrapper('astScaleWrapper', currentZoom);
+
+                setTimeout(() => {
+                    container.scrollLeft = Math.max(0, (treeWidth * fitScale - containerWidth) / 2);
+                    container.scrollTop = 0;
+                }, 50);
+            }
+        }
+
+        function adjustAstZoomModal(delta) {
+            modalZoom = Math.min(Math.max(0.1, modalZoom + delta), 3.0);
+            const valLabel = document.getElementById('astModalZoomVal');
+            if (valLabel) valLabel.innerText = Math.round(modalZoom * 100) + '%';
+            applyScaleToWrapper('astModalScaleWrapper', modalZoom);
+        }
+
+        function resetAstZoomModal() {
+            modalZoom = 1.0;
+            const valLabel = document.getElementById('astModalZoomVal');
+            if (valLabel) valLabel.innerText = '100%';
+            applyScaleToWrapper('astModalScaleWrapper', 1.0);
+        }
+
+        function autoFitAstModal() {
+            const modalContainer = document.getElementById('astModalContainer');
+            const treeContent = document.getElementById('astModalTreeContent');
+            if (!modalContainer || !treeContent) return;
+
+            applyScaleToWrapper('astModalScaleWrapper', 1.0);
+
+            const containerWidth = modalContainer.clientWidth - 64;
+            const treeWidth = treeContent.scrollWidth;
+
+            if (treeWidth > 0 && containerWidth > 0) {
+                let fitScale = Math.min(1.0, containerWidth / treeWidth);
+                fitScale = Math.max(0.15, fitScale);
+                
+                modalZoom = fitScale;
+                const valLabel = document.getElementById('astModalZoomVal');
+                if (valLabel) valLabel.innerText = Math.round(modalZoom * 100) + '%';
+                applyScaleToWrapper('astModalScaleWrapper', modalZoom);
+
+                setTimeout(() => {
+                    modalContainer.scrollLeft = Math.max(0, (treeWidth * fitScale - containerWidth) / 2);
+                    modalContainer.scrollTop = 0;
+                }, 50);
+            }
+        }
+
+        function openAstFullscreen() {
+            if (!currentAstData) return;
+            const modal = document.getElementById('astModal');
+            modal.classList.remove('hidden');
+            document.getElementById('astModalTreeContent').innerHTML = document.getElementById('astTreeContent').innerHTML;
+            
+            setTimeout(autoFitAstModal, 60);
+        }
+
+        function closeAstFullscreen() {
+            document.getElementById('astModal').classList.add('hidden');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeAstFullscreen();
+        });
+
+        function switchViewTab(tab) {
+            activeTab = tab;
+            const termBtn = document.getElementById('tabTerminalBtn');
+            const astBtn = document.getElementById('tabAstBtn');
+            const astControls = document.getElementById('astControls');
+            const termDiv = document.getElementById('terminal');
+            const astDiv = document.getElementById('astViewContainer');
+
+            if (tab === 'terminal') {
+                termBtn.className = "px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40 flex items-center gap-1.5 transition";
+                astBtn.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent transition flex items-center gap-1.5";
+                astControls.classList.add('hidden');
+                termDiv.classList.remove('hidden');
+                astDiv.classList.add('hidden');
+            } else {
+                astBtn.className = "px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 font-bold border border-cyan-500/40 flex items-center gap-1.5 transition";
+                termBtn.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent transition flex items-center gap-1.5";
+                astControls.classList.remove('hidden');
+                astDiv.classList.remove('hidden');
+                termDiv.classList.add('hidden');
+                if (currentAstData) {
+                    renderAstTree(currentAstData);
+                    setTimeout(autoFitAstInline, 60);
+                }
+            }
+        }
+
+        function renderAstTree(data) {
+            const container = document.getElementById('astTreeContent');
+            if (!data) {
+                container.innerHTML = '<div class="text-slate-600 italic mt-8 font-mono text-xs">// কোনো AST ডাটা পাওয়া যায়নি।</div>';
+                return;
+            }
+
+            function buildHtmlNode(node) {
+                if (!node) return '';
+                const typeText = node.type || 'Node';
+                const hasChildren = node.children && node.children.length > 0;
+                
+                let html = `<div class="flex flex-col items-center my-1">`;
+                html += `<div class="px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-slate-900/90 border border-cyan-500/50 text-cyan-300 shadow-lg shadow-cyan-500/10 hover:border-emerald-400 hover:text-emerald-300 transition cursor-default whitespace-nowrap">${typeText}</div>`;
+
+                if (hasChildren) {
+                    html += `<div class="w-0.5 h-3.5 bg-cyan-500/40"></div>`;
+                    html += `<div class="flex items-start gap-4 pt-1.5 border-t border-dashed border-cyan-500/40">`;
+                    for (let child of node.children) {
+                        html += buildHtmlNode(child);
+                    }
+                    html += `</div>`;
+                }
+                html += `</div>`;
+                return html;
+            }
+
+            container.innerHTML = `<div class="inline-block p-4 min-w-max">${buildHtmlNode(data)}</div>`;
+        }
+
+        function setupPanContainer(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            let isDown = false;
+            let startX, startY, scrollLeft, scrollTop;
+
+            container.addEventListener('mousedown', (e) => {
+                isDown = true;
+                startX = e.pageX - container.offsetLeft;
+                startY = e.pageY - container.offsetTop;
+                scrollLeft = container.scrollLeft;
+                scrollTop = container.scrollTop;
+            });
+
+            container.addEventListener('mouseleave', () => { isDown = false; });
+            container.addEventListener('mouseup', () => { isDown = false; });
+
+            container.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - container.offsetLeft;
+                const y = e.pageY - container.offsetTop;
+                const walkX = (x - startX) * 1.5;
+                const walkY = (y - startY) * 1.5;
+                container.scrollLeft = scrollLeft - walkX;
+                container.scrollTop = scrollTop - walkY;
+            });
+        }
+
+        setupPanContainer('astViewContainer');
+        setupPanContainer('astModalContainer');
+
+        function setupWheelZoom(containerId, isModal) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            container.addEventListener('wheel', (e) => {
+                if (e.ctrlKey || isModal) {
+                    e.preventDefault();
+                    const delta = e.deltaY < 0 ? 0.08 : -0.08;
+                    if (isModal) {
+                        adjustAstZoomModal(delta);
+                    } else {
+                        adjustAstZoom(delta);
+                    }
+                }
+            }, { passive: false });
+        }
+
+        setupWheelZoom('astViewContainer', false);
+        setupWheelZoom('astModalContainer', true);
+
         function clearTerminal() {
             const terminal = document.getElementById('terminal');
             terminal.innerHTML = '<div class="text-slate-600 italic">// Terminal cleared.</div>';
+            currentAstData = null;
+            renderAstTree(null);
+            resetAstZoom();
         }
 
         // Check backend health status periodically
@@ -394,6 +795,7 @@ bolo "5 er Factorial holo: " + fact;`
 
                 const data = await res.json();
                 terminal.innerHTML = '';
+                currentAstData = data.ast;
 
                 execTimeVal.innerText = (data.executionTimeMs || 0) + ' ms';
                 exitCodeVal.innerText = data.exitCode !== undefined ? data.exitCode : '0';
@@ -414,6 +816,11 @@ bolo "5 er Factorial holo: " + fact;`
 
                 if (!data.output && !data.error) {
                     terminal.innerHTML = '<div class="text-slate-500 italic font-mono">// কোড সফলভাবে রান হয়েছে কিন্তু কোনো আউটপুট প্রিন্ট হয়নি।</div>';
+                }
+
+                if (data.ast) {
+                    renderAstTree(data.ast);
+                    setTimeout(autoFitAstInline, 60);
                 }
             } catch (err) {
                 terminal.innerHTML = `<div class="p-3 rounded-lg bg-rose-950/50 border border-rose-800 text-rose-300 font-mono">

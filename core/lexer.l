@@ -16,7 +16,15 @@ int line_num = 1;
 "jodi"          { return JODI; }
 "nawle"         { return NAWLE; }
 "jotokhon"      { return JOTOKHON; }
+"kaaj"          { return KAAJ; }
+"ferot"         { return FEROT; }
+"nao"           { return NAO; }
+"shotto"        { return SHOTTO; }
+"mittha"        { return MITTHA; }
+"talika"        { return TALIKA; }
+"jonno"         { return JONNO; }
 
+[0-9]+\.[0-9]+  { yylval.fnum = atof(yytext); return FLOAT_NUMBER; }
 [0-9]+          { yylval.num = atoi(yytext); return NUMBER; }
 
 \"([^\"\\]|\\.)*\" {
@@ -51,6 +59,9 @@ int line_num = 1;
 "("             { return LPAREN; }
 ")"             { return RPAREN; }
 ";"             { return SEMICOLON; }
+","             { return COMMA; }
+"["             { return LBRACKET; }
+"]"             { return RBRACKET; }
 
 [ \t\r]+        { /* ignore whitespace */ }
 \n              { line_num++; }
